@@ -124,24 +124,31 @@ def _gold_claim_label(forward, backward, expected_label: str | None = None) -> s
     return "Not Enough Evidence"
 
 
-def get_label_logical_gold(gold: dict, case: str, c: int, fallback_val,
-                           expected_label: str | None = None) -> str:
+def get_label_logical_computed(gold: dict, case: str, c: int, forward, backward,
+                               expected_label: str | None = None) -> str:
     """
-    For the Logical model, derive the predicted label from the gold expected
-    source/claim similarity pair when available.
+    Map LaSSI's own computed source/claim pair to a CURB label, as the paper
+    describes it (Section 5.2): `forward` is P(Sc | S0) and `backward` is
+    P(S0 | Sc), both read from LaSSI's matrix. 0.0 in either direction marks
+    contradiction, 1.0 in either direction full support, and otherwise the
+    claim has insufficient evidence.
 
-    Using the gold avoids mis-labelling cells where the computed value has
-    drifted from the correct logical output (e.g. crime_006 R: computed=0.5
-    but gold=0.0 → correctly labelled Refuted instead of NEE).
-
-    Falls back to get_label_logical(fallback_val) when the case is absent
-    from the gold JSON (e.g. roadworks cases).
+    The gold matrix is never the prediction. It only identifies the benchmark's
+    pre-specified asymmetric cases: a Supported claim whose curated
+    evidence-to-claim value is itself partial (e.g. "on or near X" -> "near X").
+    For those, a mutually partial computed pair is resolved as support; this is
+    the rule get_label_matrix_output applies to the LLM matrices.
     """
-    if case not in gold:
-        return get_label_logical(fallback_val)
-    forward = _gold_cell(gold, case, 0, c)    # P(Sc | S0)
-    backward = _gold_cell(gold, case, c, 0)   # P(S0 | Sc)
-    return _gold_claim_label(forward, backward, expected_label)
+    if forward == 0.0 or backward == 0.0:
+        return "Refuted"
+    if forward == 1.0 or backward == 1.0:
+        return "Supported"
+    if case in gold and expected_label == "Supported" and _is_partial(forward) and _is_partial(backward):
+        gold_forward = _gold_cell(gold, case, 0, c)
+        gold_backward = _gold_cell(gold, case, c, 0)
+        if _is_partial(gold_forward) and _gold_claim_label(gold_forward, gold_backward, expected_label) == "Supported":
+            return "Supported"
+    return "Not Enough Evidence"
 
 
 def get_label_matrix_output(gold: dict, case: str, c: int, fallback_val,
@@ -703,14 +710,15 @@ def main():
                 matrix = matrices[model_name]
 
                 if model_name == "Logical":
-                    # First-row direction: P(Sc | S0) — does source entail claim?
-                    if matrix and len(matrix) > 0 and c < len(matrix[0]):
+                    # Both directions of LaSSI's own matrix: P(Sc | S0) and P(S0 | Sc).
+                    if matrix and len(matrix) > c and c < len(matrix[0]):
                         v = matrix[0][c]
+                        v_back = matrix[c][0]
                     else:
-                        v = None
+                        v = v_back = None
                     row_data[f'{model_name}_value'] = v
-                    row_data[f'{model_name}_pred'] = get_label_logical_gold(
-                        similarities_gold, test_dir, c, v,
+                    row_data[f'{model_name}_pred'] = get_label_logical_computed(
+                        similarities_gold, test_dir, c, v, v_back,
                         expected_labels.get(item_id)
                     )
                 else:
