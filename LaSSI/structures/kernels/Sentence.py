@@ -14,6 +14,7 @@ from copy import copy
 from types import SimpleNamespace
 
 from LaSSI.ner.node_functions import create_existential_node, create_props_for_singleton, get_min_position
+from LaSSI.structures.kernels.transitivity import drops_object
 from LaSSI.ner.string_functions import lemmatize_verb, check_semi_modal, lemmatize_sentence
 from LaSSI.structures.internal_graph.EntityRelationship import Relationship, Singleton, SetOfSingletons, Grouping
 from LaSSI.external_services.Services import Services
@@ -634,7 +635,7 @@ def assign_kernel(edges, kernel, negations, nodes, root_sentence_id, found_prepo
 
             # If NOT a transitive verb, remove target as target reflects direct object
             lemmas = lemmatize_sentence(edge_label.named_entity)
-            if len(transitive_verbs.intersection({lemmatize_verb(x) for x in lemmas})) == 0:
+            if drops_object({lemmatize_verb(x) for x in lemmas}, transitive_verbs):
                 kernel = Relationship(
                     source=edge_source,
                     target=None,
