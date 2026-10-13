@@ -22,7 +22,6 @@ type_conversion =             {"GPE": "SPACE",
 from LaSSI.structures.internal_graph.EntityRelationship import NodeEntryPoint, Singleton, SetOfSingletons, Grouping
 from LaSSI.structures.extended_fol.Formulae import FNot, FOr, FAnd, FUnaryPredicate, FVariable, FBinaryPredicate, \
     Formula, prune_from_cop, type_atom
-from LaSSI.utils.property_bags import freeze_properties
 
 def is_existential(obj):
     if (isinstance(obj, Singleton) or type(obj).__name__ == "Singleton") and (
@@ -124,18 +123,19 @@ def has_prop_just_one_negated_constituent(prop):
         return False, prop
     v = x[0]
     if isinstance(v,FNot):
-        return True, ((k, (v.arg,)),)
+        return True, frozenset({(k, (v.arg, ))})
     elif isinstance(v, FVariable):
         isCopNegated = ((v.cop is not None) and isinstance(v.cop, FNot))
         if isCopNegated:
             assert not isinstance(v.cop.arg, FNot) ## Not considering double negation at the moment, which should not be captured by the pipeline
         isSpecNegated = v.spec_negation
         if isCopNegated and isSpecNegated:
-            return True, ((k, (FVariable(v.name, v.type, v.specification, v.cop.arg, v.id, v.properties),)),)
+            return True, frozenset({(k, (FVariable(v.name, v.type, v.specification, v.cop.arg, v.id, v.properties), ))})
         elif isCopNegated:
-            return True, ((k, (FVariable(v.name, v.type, v.specification, v.cop.arg, v.id, v.properties),)),)
+            return True, frozenset(
+                {(k, (FVariable(v.name, v.type, v.specification, v.cop.arg, v.id, v.properties), ))})
         elif isSpecNegated:
-            return True, ((k, (FVariable(v.name, v.type, v.specification, v.cop, v.id, v.properties),)),)
+            return True, frozenset({(k, (FVariable(v.name, v.type, v.specification, v.cop, v.id, v.properties), ))})
         else:
             return False, prop
     # else:
@@ -689,18 +689,18 @@ class RewriteKernels:
                 d[k] = (v,)
                 continue
             if len(v)==1 or k in Grouping.__members__.keys() or k == "SPECIFICATION":
-                d[k] = tuple(sorted(set(v), key=repr))
+                d[k] = tuple(set(v))
             elif k in set(type_conversion.values()):
                 d[k] = unique_values(v)
             elif len(v) > 2:
                 if all(isinstance(x, (FVariable, FNot)) for x in v):
-                    d[k] = (FAnd(tuple(sorted(set(v), key=repr))),)
+                    d[k] = (FAnd(tuple(set(v))),)
                 else:
-                    d[k] = tuple(sorted(set(v), key=repr))
+                    d[k] = tuple(set(v))
             else:
                 assert len(v)==2
                 if not all(isinstance(x, (FVariable, FNot)) for x in v):
-                    d[k] = tuple(sorted(set(v), key=repr))
+                    d[k] = tuple(set(v))
                     continue
                 type_per_item = []
                 negated_args = []
@@ -711,7 +711,7 @@ class RewriteKernels:
                         assert isinstance(x, FVariable)
                     type_per_item.append(self.p.most_specific_type(list(set(type_atom(x)))))
                 if "VERB" in type_per_item:
-                    d[k] = tuple(sorted(set(v), key=repr))
+                    d[k] = tuple(set(v))
                 else:
                     mst = self.p.most_specific_type(type_per_item)
                     idx = 0 if type_per_item[0] == mst else 1
@@ -720,9 +720,9 @@ class RewriteKernels:
                         ## TODO: Both belong to the same type. It might be an error with the interpretation if I have a negation
                         # Wrap in FAnd if they are Formulae, to keep tuple length 1
                         if all(isinstance(x, (FVariable, FNot)) for x in v):
-                            d[k] = (FAnd(tuple(sorted(set(v), key=repr))),)
+                            d[k] = (FAnd(tuple(set(v))),)
                         else:
-                            d[k] = tuple(sorted(set(v), key=repr))
+                            d[k] = tuple(set(v))
                     else:
                         if idx in negated_args:
                             neg_arg = v[idx].arg
@@ -730,13 +730,13 @@ class RewriteKernels:
                                 d[k] = (FNot(FVariable(neg_arg.name, neg_arg.type, formula_name(v[opp]), neg_arg.cop, neg_arg.id,
                                                   neg_arg.properties, spec_negation=opp in negated_args)),)
                             else:
-                                d[k] = tuple(sorted(set(v), key=repr))
+                                d[k] = tuple(set(v))
                         else:
                             if (v[idx].specification is None) or len(v[idx].specification) == 0:
                                 d[k] = (FVariable(v[idx].name, v[idx].type, formula_name(v[opp]), v[idx].cop,  v[idx].id, v[idx].properties, spec_negation=opp in negated_args), )
                             else:
-                                d[k] = tuple(sorted(set(v), key=repr))
-        return freeze_properties(d)
+                                d[k] = tuple(set(v))
+        return frozenset(d.items())
 
     def rewrite_kernels(self, obj=None) -> Formula:
         if obj is None:

@@ -775,7 +775,7 @@ class CreateFinalKernelX:
         return Singleton(
             id=status.id,
             named_entity=content_name,
-            properties=create_props_for_singleton(props),
+            properties=frozenset(props.items()),
             min=status.min,
             max=status.max,
             type=status.type,
@@ -787,7 +787,7 @@ class CreateFinalKernelX:
         node = Singleton(
             id=-1,
             named_entity=surface,
-            properties=(),
+            properties=frozenset(),
             min=-1,
             max=-1,
             type="noun",

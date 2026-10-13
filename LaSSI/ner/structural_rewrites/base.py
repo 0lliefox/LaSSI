@@ -156,10 +156,13 @@ def copy_props(node_or_props) -> dict:
     }
 
 
-def freeze_props(props: dict) -> tuple:
-    """Convert mutable list-valued properties to the canonical hashable stored shape."""
-    from LaSSI.utils.property_bags import freeze_properties
-    return freeze_properties(props)
+def freeze_props(props: dict) -> frozenset:
+    """Convert mutable list-valued properties to the hashable stored shape."""
+    return frozenset({
+        tuple(k) if isinstance(k, list) else k:
+        tuple(v) if isinstance(v, list) else v
+        for k, v in props.items()
+    }.items())
 
 
 def replace_kernel(kernel, *, source=None, target=None, edge_label=None):
