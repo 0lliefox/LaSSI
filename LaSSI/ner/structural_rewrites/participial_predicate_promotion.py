@@ -61,7 +61,7 @@ class ParticipialPredicatePromotionRule(StructuralRewriteRule):
         new_source = kernel.kernel.target
 
         props = {}
-        for key, value in dict(kernel.properties).items():
+        for key, value in sorted(dict(kernel.properties).items()):
             values = list(value) if isinstance(value, (list, tuple)) else [value]
             values = [item for item in values if getattr(item, "id", None) != candidate.id]
             if not values:

@@ -290,7 +290,7 @@ class CreateFinalKernel:
                 kernel = kernel.update_kernel(self.check_for_adv(kernel.kernel.target), "target")
 
             properties_to_keep = defaultdict(list)
-            for key in dict(kernel.properties):
+            for key in sorted(dict(kernel.properties)):
                 properties_key_ = dict(kernel.properties)[key]
                 if isinstance(properties_key_, str):
                     properties_to_keep[key].append(properties_key_)
@@ -310,7 +310,7 @@ class CreateFinalKernel:
         properties_to_add = defaultdict(list)
         force_update = False
         if isinstance(kernel, Singleton):
-            for key in dict(kernel.properties):
+            for key in sorted(dict(kernel.properties)):
                 properties_key_ = dict(kernel.properties)[key]
                 if key == 'extra':
                     # As to not continually rewrite previously rewritten nodes
@@ -480,7 +480,7 @@ class CreateFinalKernel:
             properties_to_keep = defaultdict(list)
 
             # Check if properties has any Singleton's and replace those
-            for key in dict(kernel.properties):
+            for key in sorted(dict(kernel.properties)):
                 properties_key_ = dict(kernel.properties)[key]
                 if not isinstance(properties_key_, str):
                     if isinstance(properties_key_, Singleton):
@@ -587,7 +587,7 @@ class CreateFinalKernel:
 
         # If target is an adjective, and there is a pronoun or entity in the properties, swap these round
         if kernel.kernel.target is not None and isinstance(kernel.kernel.target, Singleton) and kernel.kernel.target.type.startswith("JJ"):
-            for key in dict(kernel.properties):
+            for key in sorted(dict(kernel.properties)):
                 properties_key = dict(kernel.properties)[key]
                 for node in properties_key:
                     if node.type in {'PRONOUN', 'ENTITY'}:
@@ -681,7 +681,7 @@ class CreateFinalKernel:
         kernel_nodes = self.add_to_kernel_nodes(kernel, kernel_nodes)
 
         # Add 'nmod' source and target to kernel nodes, so duplicate nodes are not added to properties
-        for key in dict(kernel.properties):
+        for key in sorted(dict(kernel.properties)):
             properties_key_ = dict(kernel.properties)[key]
             if isinstance(properties_key_, str):
                 continue
@@ -692,7 +692,7 @@ class CreateFinalKernel:
                         kernel_nodes = self.add_to_kernel_nodes(node if key not in {'nmod'} else node.kernel.target, kernel_nodes)
 
         # Check if empty kernel is in properties and remove, recursively iterate through kernels to remove duplicate properties
-        for key in dict(kernel.properties):
+        for key in sorted(dict(kernel.properties)):
             properties_key_ = dict(kernel.properties)[key]
             if isinstance(properties_key_, str):
                 continue
@@ -724,7 +724,7 @@ class CreateFinalKernel:
                     elif not is_node_in_kernel_nodes(node, kernel_nodes):
                         if hasattr(node, 'properties'):
                             inner_properties_to_keep = dict()
-                            for inner_key in dict(node.properties):
+                            for inner_key in sorted(dict(node.properties)):
                                 value = dict(node.properties)[inner_key]
                                 if ((isinstance(value, str) and value in string.punctuation) or (
                                         kernel.kernel.edgeLabel is not None and
@@ -797,7 +797,7 @@ class CreateFinalKernel:
 
     def add_singletons_from_node_properties(self, node, kernel_nodes):
         if isinstance(node, Singleton):
-            for key in dict(node.properties):
+            for key in sorted(dict(node.properties)):
                 properties_key_ = dict(node.properties)[key]
                 if not isinstance(properties_key_, str):
                     if isinstance(properties_key_, Singleton):

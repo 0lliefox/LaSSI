@@ -383,7 +383,7 @@ def add_to_kernel_nodes(node, kernel_nodes):
             kernel_nodes = add_to_kernel_nodes(entity, kernel_nodes)
     else:
         # Check if properties has any Singleton's and add to kernel nodes also
-        for key in dict(node.properties):
+        for key in sorted(dict(node.properties)):
             properties_key_ = dict(node.properties)[key]
             if not isinstance(properties_key_, str):
                 if isinstance(properties_key_, Singleton):

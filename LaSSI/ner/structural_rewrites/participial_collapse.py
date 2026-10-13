@@ -56,7 +56,7 @@ class ParticipialCollapseRule(StructuralRewriteRule):
         outer_lemma = self._verb_lemma(outer_edge) if outer_is_verb else None
 
         candidates = []
-        for key, value in dict(kernel.properties).items():
+        for key, value in sorted(dict(kernel.properties).items()):
             if not isinstance(key, str):
                 continue
             if not (key.isupper() or key == "SENTENCE"):
@@ -218,7 +218,7 @@ class ParticipialCollapseRule(StructuralRewriteRule):
                 self._append_normalized(outer_props, default_key, target)
 
         # 2. Promote any uppercase-keyed sub-properties of the sub-singleton.
-        for sub_key, sub_value in dict(sub_singleton.properties).items():
+        for sub_key, sub_value in sorted(dict(sub_singleton.properties).items()):
             if not isinstance(sub_key, str) or not sub_key.isupper():
                 continue
             values = sub_value if isinstance(sub_value, (list, tuple)) else [sub_value]

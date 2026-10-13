@@ -159,7 +159,7 @@ class LifecyclePropertyPromotionRule(StructuralRewriteRule):
                 return True
             if cls._has_promotable(node.kernel.target, ctx):
                 return True
-        for key, value in dict(node.properties).items():
+        for key, value in sorted(dict(node.properties).items()):
             if key == "TIME_STATUS":
                 for item in property_values(dict(node.properties), key):
                     if cls._is_status_node(item, ctx) and cls._needs_type_override(item):
@@ -259,7 +259,7 @@ class LifecyclePropertyPromotionRule(StructuralRewriteRule):
             if status_node is not None:
                 return cls._status_node_with_explicit_type(status_node, status_type)
 
-        for prop_value in dict(value.properties).values():
+        for prop_value in [_v for _k, _v in sorted(dict(value.properties).items())]:
             status_node = cls._find_status_node(prop_value, ctx)
             if status_node is not None:
                 return cls._status_node_with_explicit_type(status_node, status_type)

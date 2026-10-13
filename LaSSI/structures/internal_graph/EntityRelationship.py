@@ -163,7 +163,7 @@ class SetOfSingletons(NodeEntryPoint):  # Graph node representing conjunction/di
         props_to_ignore = ['begin', 'pos', 'end', 'kernel', 'lemma', 'specification', 'number', 'root', 'expl', 'cc',
                            'conj', 'neg', 'adv', 'subjpass']
         properties_list = defaultdict(list)
-        for key in dict(node_to_use.properties):
+        for key in sorted(dict(node_to_use.properties)):
             if key not in props_to_ignore:
                 properties_key_ = dict(node_to_use.properties)[key]
                 if isinstance(properties_key_, str) and properties_key_ != '':
@@ -527,7 +527,7 @@ class Singleton(NodeEntryPoint):  # Graph node representing just one entity
         props_to_ignore = ['begin', 'pos', 'end', 'kernel', 'lemma', 'specification', 'number', 'root', 'expl', 'adv',
                            'subjpass']
         properties_list = defaultdict(list)
-        for key in dict(node_to_use.properties):
+        for key in sorted(dict(node_to_use.properties)):
             if key not in props_to_ignore:
                 properties_key_ = dict(node_to_use.properties)[key]
                 if isinstance(properties_key_, str) and properties_key_ != '':
