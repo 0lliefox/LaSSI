@@ -310,7 +310,7 @@ class KernelPostProcessor:
 
         valid_keys = self._valid_kernel_property_keys()
         cleaned_props = {}
-        for key, value in dict(kernel.properties).items():
+        for key, value in sorted(dict(kernel.properties).items()):
             if key not in valid_keys:
                 continue
             if isinstance(value, (list, tuple)):
@@ -755,7 +755,7 @@ class KernelPostProcessor:
 
     def _space_case_signature(self, ent):
         sig = []
-        for k, v in dict(ent.properties).items():
+        for k, v in sorted(dict(ent.properties).items()):
             if k in self._SPACE_CASE_MARKER_KEYS or self._is_position_key(k):
                 if isinstance(v, (list, tuple)):
                     sig.append((k, tuple(str(x) for x in v)))
@@ -826,7 +826,7 @@ class KernelPostProcessor:
                 kernel = kernel.update_kernel(self.check_for_adv(kernel.kernel.target), "target")
 
             properties_to_keep = defaultdict(list)
-            for key in dict(kernel.properties):
+            for key in sorted(dict(kernel.properties)):
                 properties_key_ = dict(kernel.properties)[key]
                 if isinstance(properties_key_, str):
                     properties_to_keep[key] = properties_key_
@@ -970,7 +970,7 @@ class KernelPostProcessor:
         contextual_ids.discard(None)
 
         promoted_props = defaultdict(list)
-        for key, value in dict(main_clause.properties).items():
+        for key, value in sorted(dict(main_clause.properties).items()):
             if isinstance(value, (list, tuple)):
                 kept_values = []
                 for item in value:
@@ -1237,7 +1237,7 @@ class KernelPostProcessor:
             properties_to_keep = defaultdict(list)
 
             # Check if properties has any Singleton's and replace those
-            for key in dict(kernel.properties):
+            for key in sorted(dict(kernel.properties)):
                 properties_key_ = dict(kernel.properties)[key]
                 if not isinstance(properties_key_, str):
                     if isinstance(properties_key_, Singleton):
@@ -1335,7 +1335,7 @@ class KernelPostProcessor:
         kernel_nodes = self.add_to_kernel_nodes(kernel, kernel_nodes)
 
         # Add 'nmod' source and target to kernel nodes, so duplicate nodes are not added to properties
-        for key in dict(kernel.properties):
+        for key in sorted(dict(kernel.properties)):
             properties_key_ = dict(kernel.properties)[key]
             if isinstance(properties_key_, str):
                 continue
@@ -1354,7 +1354,7 @@ class KernelPostProcessor:
                         kernel_nodes = self.add_to_kernel_nodes(consumed_node, kernel_nodes)
 
         # Check if empty kernel is in properties and remove, recursively iterate through kernels to remove duplicate properties
-        for key in dict(kernel.properties):
+        for key in sorted(dict(kernel.properties)):
             properties_key_ = dict(kernel.properties)[key]
             if isinstance(properties_key_, str):
                 continue
@@ -1396,7 +1396,7 @@ class KernelPostProcessor:
                     elif not is_node_in_kernel_nodes(node, kernel_nodes):
                         if hasattr(node, 'properties'):
                             inner_properties_to_keep = dict()
-                            for inner_key in dict(node.properties):
+                            for inner_key in sorted(dict(node.properties)):
                                 value = dict(node.properties)[inner_key]
                                 if ((isinstance(value, str) and value in string.punctuation) or (
                                         kernel.kernel.edgeLabel is not None and
@@ -1747,7 +1747,7 @@ class KernelPostProcessor:
 
     def add_singletons_from_node_properties(self, node, kernel_nodes):
         if isinstance(node, Singleton):
-            for key in dict(node.properties):
+            for key in sorted(dict(node.properties)):
                 properties_key_ = dict(node.properties)[key]
                 if not isinstance(properties_key_, str):
                     if isinstance(properties_key_, Singleton):

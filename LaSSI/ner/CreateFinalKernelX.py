@@ -223,7 +223,7 @@ class CreateFinalKernelX:
             ]
             if subordinate_kernels and isinstance(primary_kernel, Singleton):
                 new_props = defaultdict(list)
-                for k, v in dict(primary_kernel.properties).items():
+                for k, v in sorted(dict(primary_kernel.properties).items()):
                     if isinstance(v, (list, tuple)):
                         new_props[k] = list(v)
                     else:
@@ -236,7 +236,7 @@ class CreateFinalKernelX:
             # Same component, multiple roots: merge accumulated properties from prior roots
             # into the final kernel before the post-processing pipeline runs.
             merged_props = defaultdict(list)
-            for k, v in dict(final_kernel.properties).items():
+            for k, v in sorted(dict(final_kernel.properties).items()):
                 if isinstance(v, (list, tuple)):
                     merged_props[k] = list(v)
                 else:
@@ -247,7 +247,7 @@ class CreateFinalKernelX:
                 other_kernel = self.G.nodes[nid]['data']
                 if not isinstance(other_kernel, Singleton):
                     continue
-                for k, v in dict(other_kernel.properties).items():
+                for k, v in sorted(dict(other_kernel.properties).items()):
                     if isinstance(v, (list, tuple)):
                         existing_ids = {x.id for x in merged_props.get(k, []) if hasattr(x, 'id')}
                         for item in v:
@@ -376,7 +376,7 @@ class CreateFinalKernelX:
                     chosen_nominal = chosen_nominal.kernel.target
 
                 new_props = defaultdict(list)
-                for k, v in dict(final_kernel.properties).items():
+                for k, v in sorted(dict(final_kernel.properties).items()):
                     if isinstance(v, (list, tuple)):
                         new_props[k] = list(v)
                     else:
@@ -437,7 +437,7 @@ class CreateFinalKernelX:
                     sibling_kernels.append(nd)
                 if sibling_kernels:
                     new_props = defaultdict(list)
-                    for k, v in dict(main_kernel.properties).items():
+                    for k, v in sorted(dict(main_kernel.properties).items()):
                         new_props[k] = list(v) if isinstance(v, (list, tuple)) else v
                     existing_ids = {
                         x.id for x in new_props.get('SENTENCE', [])
@@ -589,7 +589,7 @@ class CreateFinalKernelX:
 
         lhs_refs = self._referenced_ids(lhs_kernel.kernel.source) | self._referenced_ids(lhs_kernel.kernel.target)
         rhs_refs = self._referenced_ids(rhs_kernel.kernel.source) | self._referenced_ids(rhs_kernel.kernel.target)
-        for value in dict(rhs_kernel.properties).values():
+        for value in [_v for _k, _v in sorted(dict(rhs_kernel.properties).items())]:
             rhs_refs |= self._referenced_ids(value)
         return bool(lhs_refs and rhs_refs and lhs_refs & rhs_refs)
 
@@ -615,7 +615,7 @@ class CreateFinalKernelX:
                 ids |= cls._referenced_ids(value.kernel.source)
                 ids |= cls._referenced_ids(value.kernel.target)
                 ids |= cls._referenced_ids(value.kernel.edgeLabel)
-            for prop_value in dict(value.properties).values():
+            for prop_value in [_v for _k, _v in sorted(dict(value.properties).items())]:
                 ids |= cls._referenced_ids(prop_value)
         elif isinstance(value, SetOfSingletons):
             ids.add(value.id)
@@ -645,7 +645,7 @@ class CreateFinalKernelX:
             return kernel
 
         props = defaultdict(list)
-        for key, value in dict(kernel.properties).items():
+        for key, value in sorted(dict(kernel.properties).items()):
             props[key] = list(value) if isinstance(value, (list, tuple)) else value
 
         status_nodes = [
@@ -1042,7 +1042,7 @@ class CreateFinalKernelX:
 
         # If target is an adjective, and there is a pronoun or entity in the properties, swap these round
         if kernel.kernel.target is not None and isinstance(kernel.kernel.target, Singleton) and kernel.kernel.target.type.startswith("JJ"):
-            for key in dict(kernel.properties):
+            for key in sorted(dict(kernel.properties)):
                 properties_key = dict(kernel.properties)[key]
                 for node in properties_key:
                     if node.type in DependencyRoles.predicative_subject_pos_tags():
@@ -1061,12 +1061,12 @@ class CreateFinalKernelX:
             is_canonical_copula(kernel.kernel.edgeLabel.named_entity) and
             'SENTENCE' in dict(kernel.properties)
         ):
-            for key in dict(kernel.properties):
+            for key in sorted(dict(kernel.properties)):
                 if key == 'SENTENCE':
                     sentences = dict(kernel.properties)[key]
                     for sentence in sentences:
                         if sentence.kernel.source.type == 'existential':
-                            for sentence_key in dict(sentence.properties):
+                            for sentence_key in sorted(dict(sentence.properties)):
                                 sentence_properties = dict(sentence.properties)[sentence_key]
                                 for prop_node in sentence_properties:
                                     if prop_node.id == kernel.kernel.source.id:

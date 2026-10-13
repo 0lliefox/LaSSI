@@ -257,7 +257,7 @@ class GraphPreprocessor:
                 # two HYPH positions.
                 prep_word = None
                 prep_pos = None
-                for k, v in dict(mid_data.properties).items():
+                for k, v in sorted(dict(mid_data.properties).items()):
                     try:
                         k_pos = float(k)
                     except (TypeError, ValueError):

@@ -310,7 +310,7 @@ class TypeResolver:
                                 source_data = G.nodes[source]['data']
 
                                 combined_props = dict(target_data.properties)
-                                for k, v in dict(source_data.properties).items():
+                                for k, v in sorted(dict(source_data.properties).items()):
                                     if k not in combined_props:
                                         combined_props[k] = v
 
@@ -377,7 +377,7 @@ class TypeResolver:
                 for nid in remaining[1:]:
                     if nid not in G:
                         continue
-                    for k, v in dict(G.nodes[nid]['data'].properties).items():
+                    for k, v in sorted(dict(G.nodes[nid]['data'].properties).items()):
                         if k not in combined_props:
                             combined_props[k] = v
                     G = nx.contracted_nodes(G, head_id, nid, self_loops=False)

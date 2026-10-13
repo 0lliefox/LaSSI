@@ -288,7 +288,7 @@ def has_head_swap_candidate(node, config, ctx):
             return True
     if _is_head_swap_candidate(node, config, ctx):
         return True
-    for value in dict(node.properties).values():
+    for value in [_v for _k, _v in sorted(dict(node.properties).items())]:
         for item in as_list(value):
             if has_head_swap_candidate(item, config, ctx):
                 return True

@@ -676,7 +676,7 @@ class RowChunkPipeline:
         if not head_name:
             return None
         head_props = {}
-        for k, v in dict(sub_kernel.properties).items():
+        for k, v in sorted(dict(sub_kernel.properties).items()):
             head_props[k] = list(v) if isinstance(v, (list, tuple)) else v
         # Restore the head's compound modifiers (dropped by the broken
         # be(also, ?) kernel) as `extra` Singletons.
@@ -727,7 +727,7 @@ class RowChunkPipeline:
                 # the identity-refining key consistent across paraphrases).
                 if isinstance(single, Singleton):
                     new_props = defaultdict(list)
-                    for k, v in dict(single.properties).items():
+                    for k, v in sorted(dict(single.properties).items()):
                         new_props[k] = list(v) if isinstance(v, (list, tuple)) else v
                     self._reclassify_togetherness_disruption(new_props)
                     single = single.update_node_props(new_props)
@@ -801,7 +801,7 @@ class RowChunkPipeline:
 
             # Seed new_props from the primary.
             new_props = defaultdict(list)
-            for k, v in dict(primary.properties).items():
+            for k, v in sorted(dict(primary.properties).items()):
                 if isinstance(v, (list, tuple)):
                     new_props[k] = list(v)
                 else:
@@ -813,7 +813,7 @@ class RowChunkPipeline:
             if and_group is not None and topic_header_idx is not None:
                 header_kernel = intermediate_representations[topic_header_idx]
                 if isinstance(header_kernel, Singleton):
-                    for k, v in dict(header_kernel.properties).items():
+                    for k, v in sorted(dict(header_kernel.properties).items()):
                         if k not in construct_keys:
                             continue
                         items = list(v) if isinstance(v, (list, tuple)) else [v]
@@ -834,7 +834,7 @@ class RowChunkPipeline:
                 sub_role = self.role_for_sub(sub_idx)
                 promoted_any = False
                 if isinstance(sub_kernel, Singleton):
-                    for k, v in dict(sub_kernel.properties).items():
+                    for k, v in sorted(dict(sub_kernel.properties).items()):
                         if k not in construct_keys:
                             continue
                         # M3 — when an AND group is the primary, an

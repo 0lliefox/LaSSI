@@ -36,7 +36,7 @@ class KernelLogicalRewriter:
         properties_to_add = defaultdict(list)
         force_update = False
         if isinstance(kernel, Singleton):
-            for key in dict(kernel.properties):
+            for key in sorted(dict(kernel.properties)):
                 properties_key_ = dict(kernel.properties)[key]
                 if key == 'extra':
                     # As to not continually rewrite previously rewritten nodes
@@ -275,7 +275,7 @@ class KernelLogicalRewriter:
                                 prop_node.kernel.target,
                                 properties,
                             )
-                        for embedded_key, embedded_value in dict(prop_node.properties).items():
+                        for embedded_key, embedded_value in sorted(dict(prop_node.properties).items()):
                             if (
                                     isinstance(embedded_key, str) and
                                     embedded_key.isupper() and

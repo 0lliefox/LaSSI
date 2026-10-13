@@ -44,7 +44,7 @@ class KernelOntologyMatchers:
             return {candidate for candidate in raw if candidate}
         if isinstance(value, Singleton):
             candidates = self.name_candidates(value.named_entity)
-            for key, prop_value in dict(value.properties).items():
+            for key, prop_value in sorted(dict(value.properties).items()):
                 candidates |= self.name_candidates(key)
                 candidates |= self.name_candidates(prop_value)
             return candidates
