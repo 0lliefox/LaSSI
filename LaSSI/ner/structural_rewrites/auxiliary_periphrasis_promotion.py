@@ -365,7 +365,7 @@ class AuxiliaryPeriphrasisPromotionRule(StructuralRewriteRule):
         existential_target = Singleton(
             id=-(abs(kernel.id) + 1),
             named_entity="?",
-            properties=frozenset(dict().items()),
+            properties=(),
             min=kernel.min,
             max=kernel.max,
             type="existential",
@@ -375,7 +375,7 @@ class AuxiliaryPeriphrasisPromotionRule(StructuralRewriteRule):
         be_label = Singleton(
             id=-1,
             named_entity="be",
-            properties=frozenset(dict().items()),
+            properties=(),
             min=inner_edge.min,
             max=inner_edge.max,
             type="verb",

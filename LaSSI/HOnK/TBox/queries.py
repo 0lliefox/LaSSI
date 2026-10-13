@@ -1,6 +1,7 @@
 
 from LaSSI.structures.extended_fol.Formulae import FVariable, FUnaryPredicate, FBinaryPredicate, FNot
 from LaSSI.HOnK.HOnK import HOnKSingleton
+from LaSSI.utils.property_bags import freeze_properties, is_property_bag
 
 ## TODO: use single_edge_src_multipoint to retrive the target nodes given the name, the adjective, and the relationship
 
@@ -99,7 +100,7 @@ def extractProperties(d, **kwargs):
     result = kwargs.get("result", None)
     assert result is not None
     assert isinstance(result, str)
-    if not hasattr(obj, "properties") or (not isinstance(obj.properties, frozenset)):
+    if not hasattr(obj, "properties") or (not is_property_bag(obj.properties)):
         return [] ## if there are no properties field, then no match shall be considered
     L = []
     for k, v in obj.properties:
@@ -119,13 +120,13 @@ def removeFromProperties(arg, **kwargs):
     if (arg is None):
         print("No variable to remove the adjective: returning NONE")
         return None
-    if isinstance(arg, frozenset):
+    if is_property_bag(arg):
         var = kwargs.get("key", None)
         assert var is not None
         assert isinstance(var, str)
-        return frozenset({k:v for k,v in arg if k != var}.items())
+        return freeze_properties({k: v for k, v in arg if k != var})
     else:
-        raise RuntimeError("ERROR: we can remove properties only to something that has a properties field and which their type is a frozenset!")
+        raise RuntimeError("ERROR: we can remove properties only to something that has a properties field and which their type is a property bag!")
 
 def getOutgoingNodes(d, **kwargs):
     var = kwargs.get("variable", None)
@@ -287,7 +288,7 @@ def addProperty(arg, **kwargs):
     if arg is None:
         print("No variable to add the property: returning NONE")
         return None
-    if isinstance(arg, frozenset):
+    if is_property_bag(arg):
         var = kwargs.get("key", None)
         assert var is not None
         assert isinstance(var, str)

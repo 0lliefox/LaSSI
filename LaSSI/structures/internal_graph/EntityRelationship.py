@@ -13,6 +13,7 @@ from enum import Enum
 from typing import List, DefaultDict
 
 from LaSSI.structures import DependencyRoles
+from LaSSI.utils.property_bags import as_mapping, freeze_properties
 
 
 class Grouping(Enum):
@@ -65,8 +66,7 @@ class SetOfSingletons(NodeEntryPoint):  # Graph node representing conjunction/di
 
     @property
     def properties(self):
-        from LaSSI.ner.node_functions import create_props_for_singleton
-        return create_props_for_singleton(self.get_props())
+        return freeze_properties(self.get_props())
 
     def min_f(self):
         return min(int(self.min), min([x.min_f() for x in self.entities if x is not None]))
@@ -346,7 +346,7 @@ class Relationship:  # Representation of an edge
 class Singleton(NodeEntryPoint):  # Graph node representing just one entity
     id: int
     named_entity: str  # String representation of the entity
-    properties: frozenset  # Key-Value association for such entity
+    properties: tuple  # Key-Value pairs, sorted by key (see LaSSI.utils.property_bags)
     min: int
     max: int
     type: str
@@ -419,7 +419,6 @@ class Singleton(NodeEntryPoint):  # Graph node representing just one entity
         return dict(self.properties)
 
     def update_node_props(self, node_props):
-        from LaSSI.ner.node_functions import create_props_for_singleton
         return Singleton(
             id=self.id,
             named_entity=self.named_entity,
@@ -428,7 +427,7 @@ class Singleton(NodeEntryPoint):  # Graph node representing just one entity
             type=self.type,
             confidence=self.confidence,
             kernel=self.kernel,
-            properties=create_props_for_singleton(node_props),
+            properties=freeze_properties(node_props),
         )
 
     def update_name(self, new_name):
@@ -504,7 +503,7 @@ class Singleton(NodeEntryPoint):  # Graph node representing just one entity
         return Singleton(
             id=self.id,
             named_entity=self.named_entity,
-            properties=frozenset(sing_props.items()),
+            properties=freeze_properties(sing_props),
             min=self.min,
             max=self.max,
             type=self.type,
@@ -515,7 +514,7 @@ class Singleton(NodeEntryPoint):  # Graph node representing just one entity
     @classmethod
     def from_dict(cls, c):
         import dacite
-        c["properties"] = frozenset(c["properties"].items())
+        c["properties"] = freeze_properties(as_mapping(c["properties"]))
         dacite.from_dict(Singleton, c)
 
     def get_node_properties_string(self, node_to_use):

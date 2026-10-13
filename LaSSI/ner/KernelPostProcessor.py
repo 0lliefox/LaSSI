@@ -5,6 +5,7 @@ __license__ = "GPL"
 __version__ = "2.0"
 __maintainer__ = "Oliver R. Fox"
 __status__ = "Production"
+from LaSSI.utils.property_bags import freeze_properties
 
 import itertools
 import re
@@ -388,7 +389,7 @@ class KernelPostProcessor:
         return Singleton(
             id=sentence.id,
             named_entity=sentence.named_entity,
-            properties=frozenset(new_props_dict.items()),
+            properties=create_props_for_singleton(new_props_dict),
             min=sentence.min,
             max=sentence.max,
             type=sentence.type,
@@ -471,7 +472,7 @@ class KernelPostProcessor:
         new_target = Singleton(
             id=part.id,
             named_entity=part.named_entity,
-            properties=frozenset(part_kept),
+            properties=freeze_properties(part_kept),
             min=part.min,
             max=part.max,
             type=part.type,
@@ -486,7 +487,7 @@ class KernelPostProcessor:
             new_space = Singleton(
                 id=target.id,
                 named_entity=target.named_entity,
-                properties=frozenset(target_props),
+                properties=freeze_properties(target_props),
                 min=target.min,
                 max=target.max,
                 type=target.type,

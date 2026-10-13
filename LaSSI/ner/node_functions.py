@@ -8,7 +8,7 @@ def create_existential_node(node_id=-1):
     return Singleton(
         id=node_id,
         named_entity="?" + str(Services.getInstance().getExistentials().increaseAndGetExistential()),
-        properties=frozenset(dict().items()),
+        properties=(),
         min=-1,
         max=-1,
         type="existential",
@@ -17,7 +17,10 @@ def create_existential_node(node_id=-1):
 
 
 def create_props_for_singleton(properties):
-    return frozenset({tuple(k) if isinstance(k, list) else k: tuple(v) if isinstance(v, list) else v for k, v in properties.items()}.items())
+    """The canonical stored bag. Delegates to LaSSI.utils.property_bags, which is also what
+    `structural_rewrites.base.freeze_props` uses — the two were identical copies of this line."""
+    from LaSSI.utils.property_bags import freeze_properties
+    return freeze_properties(properties)
 
 
 def get_min_position(node):
@@ -179,5 +182,5 @@ class NodeFunctions:
                 edgeLabel=kernel.edgeLabel,
                 isNegated=kernel.isNegated
             ),
-            properties=frozenset() if properties is None else create_props_for_singleton(properties),
+            properties=() if properties is None else create_props_for_singleton(properties),
         )

@@ -9,6 +9,7 @@ __status__ = "Production"
 
 import copy
 from collections import defaultdict
+from LaSSI.utils.property_bags import as_mapping, freeze_properties
 from dataclasses import dataclass, field
 from typing import Tuple, Dict, Union, Optional
 
@@ -120,7 +121,7 @@ def update_property_function(prop, f):
             d[key] = tuple(map(f, d[key]))
         else:
             d[key] = f(d[key])
-    return frozenset(d.items())
+    return freeze_properties(d)
 
 def update_bogus_copula(f):
     if isinstance(f, str):
@@ -141,7 +142,7 @@ def update_property(prop, key, value):
                 d[key] = (d[key], value)
     else:
         d[key] = (value,)
-    return frozenset(d.items())
+    return freeze_properties(d)
 
 @dataclass(order=True, frozen=True, eq=True)
 class ProvenanceInformation:
@@ -156,7 +157,7 @@ class FVariable: ## TODO: rename to FTerm or FConstant
     specification: Optional[str|Ignore] = None  # extra
     cop: Optional['Formula'] = None
     id: Optional[int] = None
-    properties: frozenset = field(default_factory=lambda: frozenset())
+    properties: tuple = field(default_factory=tuple)   # sorted by key; see LaSSI.utils.property_bags
     spec_negation:bool = False
     meta: str = field(default_factory=lambda: "FVariable")
     asAll: bool = False ## By default, the interpretation is exitential. If not, this is interpreted as All
@@ -246,7 +247,7 @@ class FUnaryPredicate:
     rel: str
     arg: 'Formula'
     score: float
-    properties: frozenset = field(default_factory=lambda: frozenset())
+    properties: tuple = field(default_factory=tuple)   # sorted by key; see LaSSI.utils.property_bags
     meta: str = field(default_factory=lambda: "FUnaryPredicate")
     # matched: bool = field(default_factory=lambda: False)
 
@@ -302,7 +303,7 @@ class FBinaryPredicate:
     src: 'Formula'
     dst: 'Formula'
     score: float
-    properties: frozenset
+    properties: tuple
     meta: str = field(default_factory=lambda: "FBinaryPredicate")
     # matched: bool = field(default_factory=lambda: False)
 
@@ -570,10 +571,10 @@ def formula_from_dict(f: Union[dict, str], useId=False):
         cop = formula_from_dict(f["cop"], useId) if "cop" in f else None
         properties = defaultdict(set)
         if "properties" in f:
-            for k, v in f["properties"].items():
+            for k, v in as_mapping(f["properties"]).items():
                 for x in v:
                     properties[k].add(formula_from_dict(x, useId))
-        properties = frozenset({k: tuple(v) for k, v in properties.items()}.items())
+        properties = freeze_properties({k: tuple(sorted(v, key=repr)) for k, v in properties.items()})
         return FVariable(name=name, type=type, specification=specification, cop=cop, id=id, spec_negation=spec_negation, properties=properties)
     if meta == "FUnaryPredicate":
         rel = str(f["rel"]) if "rel" in f and f["rel"] is not None else ""
@@ -581,11 +582,11 @@ def formula_from_dict(f: Union[dict, str], useId=False):
         score = float(f["score"]) if "score" in f else 1.0
         properties = defaultdict(set)
         if "properties" in f:
-            for k, v in f["properties"].items():
+            for k, v in as_mapping(f["properties"]).items():
                 for x in v:
                     properties[k].add(formula_from_dict(x, useId))
-        properties = {k: tuple(v) for k, v in properties.items()}
-        return FUnaryPredicate(rel, arg, score, frozenset(properties.items()))
+        properties = {k: tuple(sorted(v, key=repr)) for k, v in properties.items()}
+        return FUnaryPredicate(rel, arg, score, freeze_properties(properties))
     if meta == "FBinaryPredicate":
         rel = str(f["rel"]) if "rel" in f else ""
         src = formula_from_dict(f["src"], useId) if "src" in f else None
@@ -593,8 +594,8 @@ def formula_from_dict(f: Union[dict, str], useId=False):
         score = float(f["score"]) if "score" in f else 1.0
         properties = defaultdict(set)
         if "properties" in f:
-            for k, v in f["properties"].items():
+            for k, v in as_mapping(f["properties"]).items():
                 for x in v:
                     properties[k].add(formula_from_dict(x, useId))
-        properties = {k: tuple(v) for k, v in properties.items()}
-        return FBinaryPredicate(rel, src, dst, score, frozenset(properties.items()))
+        properties = {k: tuple(sorted(v, key=repr)) for k, v in properties.items()}
+        return FBinaryPredicate(rel, src, dst, score, freeze_properties(properties))
