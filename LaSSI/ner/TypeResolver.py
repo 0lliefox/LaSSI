@@ -6,7 +6,6 @@ from LaSSI.ner.MergeSetOfSingletons import _promote_geo_suffixed_type
 from LaSSI.structures import DependencyRoles
 from LaSSI.structures.internal_graph.EntityRelationship import Singleton, Grouping
 from LaSSI.structures.kernels.Sentence import is_kernel_in_props, case_in_props
-from LaSSI.ner.node_functions import create_props_for_singleton
 
 def _filter_spurious_meus(meu_db_row, honk):
     """Drop three classes of false-positive MEU.
@@ -327,7 +326,7 @@ class TypeResolver:
                                 new_singleton = Singleton(
                                     id=target_data.id,
                                     named_entity=merged_name,
-                                    properties=create_props_for_singleton(combined_props),
+                                    properties=frozenset(combined_props.items()),
                                     min=merged_min,
                                     max=merged_max,
                                     type=meu.type if (meu.type != "None" and (target_data.min == meu.start_char or source_data.min == meu.start_char)) else target_data.type,
@@ -386,7 +385,7 @@ class TypeResolver:
                 merged_singleton = Singleton(
                     id=head_data.id,
                     named_entity=meu.text,
-                    properties=create_props_for_singleton(combined_props),
+                    properties=frozenset(combined_props.items()),
                     min=meu.start_char,
                     max=meu.end_char,
                     type=meu.type,

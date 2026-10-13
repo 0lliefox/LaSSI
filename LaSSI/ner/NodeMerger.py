@@ -211,7 +211,7 @@ class NodeMerger:
                         obl_label = Singleton(
                             id=self.node_functions.fresh_id(),
                             named_entity='obl',
-                            properties=(),
+                            properties=frozenset(),
                             min=-1,
                             max=-1,
                             type='non_verb',

@@ -2,7 +2,6 @@ from LaSSI.structures.extended_fol.Formulae import FVariable, FOr, FAnd, FUnaryP
 from LaSSI.HOnK.HOnK import HOnKSingleton, CasusHappening
 from LaSSI.HOnK.TBox.ComparatorUtils import isImplication
 from LaSSI.utils.logical_analysis_reader import spatial_relation_labels
-from LaSSI.utils.property_bags import freeze_properties
 
 _GEO_TYPES = {"LOC", "GPE", "FAC"}
 
@@ -50,7 +49,7 @@ def _strip_spatial_type_properties(props):
                 new_props.append((key, filtered))
         else:
             new_props.append((key, val))
-    return freeze_properties(new_props)
+    return frozenset(new_props)
 
 def _canonicalize_geo_fvar(fvar):
     if not isinstance(fvar, FVariable):

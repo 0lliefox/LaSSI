@@ -554,7 +554,7 @@ class RowChunkPipeline:
             source = Singleton(
                 id=self._synthetic_node_id(),
                 named_entity=f"?{self._synthetic_node_id()}",
-                properties=(),
+                properties=frozenset(),
                 min=-1, max=-1, type="existential", confidence=1.0,
                 kernel=None,
             )
@@ -563,14 +563,14 @@ class RowChunkPipeline:
         be_edge = Singleton(
             id=self._synthetic_node_id(),
             named_entity="be",
-            properties=(),
+            properties=frozenset(),
             min=-1, max=-1, type="verb", confidence=1.0,
             kernel=None,
         )
         return Singleton(
             id=self._synthetic_node_id(),
             named_entity="",
-            properties=(),
+            properties=frozenset(),
             min=-1, max=-1, type="SENTENCE", confidence=1.0,
             kernel=Relationship(
                 source=source,
@@ -691,7 +691,7 @@ class RowChunkPipeline:
                 extras.append(Singleton(
                     id=self._synthetic_node_id(),
                     named_entity=name,
-                    properties=(),
+                    properties=frozenset(),
                     min=-1, max=-1, type="noun", confidence=1.0, kernel=None,
                 ))
             head_props["extra"] = extras
@@ -1167,7 +1167,7 @@ class RowChunkPipeline:
             existing.append(Singleton(
                 id=self._synthetic_node_id(),
                 named_entity=nominal,
-                properties=(),
+                properties=frozenset(),
                 min=-1, max=-1, type="noun", confidence=1.0, kernel=None,
             ))
             new_props["SPECIFICATION"] = existing

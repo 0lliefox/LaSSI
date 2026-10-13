@@ -1,6 +1,5 @@
 from LaSSI.structures.extended_fol.Formulae import FVariable, FNot, FBinaryPredicate, FUnaryPredicate
 from LaSSI.HOnK.TBox.ParaphraseManager import _canon_lookup_paraphrase_concept, _canon_paraphrase_member, _canon_numeric_member
-from LaSSI.utils.property_bags import freeze_properties
 
 _CANON_SYNTACTIC_PROPERTY_KEYS = frozenset({
     'punct', 'det', 'mark', 'lemma', 'number', 'specification',
@@ -49,7 +48,7 @@ def _canon_fvar_cop(cop_fvar, parent_concept):
         specification=None,
         cop=None,
         id=None,
-        properties=(),
+        properties=frozenset(),
         spec_negation=cop_fvar.spec_negation,
         meta=cop_fvar.meta,
         asAll=cop_fvar.asAll,
@@ -59,7 +58,7 @@ def _canon_fvar_properties(props, parent_concept):
     """Strip syntactic-noise property keys and lift the first
     `cop`/`amod`/`nummod` magnitude value out."""
     if not props:
-        return (), None
+        return frozenset(), None
     magnitude = None
     out = {}
     for k, v in dict(props).items():
@@ -102,10 +101,10 @@ def _canon_fvar_properties(props, parent_concept):
                              or _canon_str(mag))
                 lifted = FVariable(
                     name=canonical, type="JJ", specification=None, cop=None, id=None,
-                    properties=(), spec_negation=False, meta="FVariable", asAll=False,
+                    properties=frozenset(), spec_negation=False, meta="FVariable", asAll=False,
                 )
                 break
-    return freeze_properties(out), lifted
+    return frozenset(out.items()), lifted
 
 def _canon_fvar(fvar):
     if not isinstance(fvar, FVariable):
@@ -148,7 +147,7 @@ def _canon_fvar(fvar):
 def _canon_predicate_properties(props):
     """Canonicalise the predicate-level property bag."""
     if not props:
-        return ()
+        return frozenset()
     out = {}
     for k, v in dict(props).items():
         if isinstance(k, str) and k in _CANON_SYNTACTIC_PROPERTY_KEYS:
@@ -169,7 +168,7 @@ def _canon_predicate_properties(props):
             out[k] = _canon_str(v)
         else:
             out[k] = v
-    return freeze_properties(out)
+    return frozenset(out.items())
 
 def canonicalize_atom_for_paraphrase_expansion(atom):
     """Public entry point: return a paraphrase-canonical variant of an

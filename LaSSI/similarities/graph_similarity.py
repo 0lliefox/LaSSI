@@ -16,7 +16,6 @@ from nltk.stem.wordnet import WordNetLemmatizer
 from LaSSI.similarities.string_similarity_factory import StringSimilarity
 from LaSSI.structures.internal_graph.EntityRelationship import Relationship, Grouping, Singleton, NodeEntryPoint
 from LaSSI.utils.configurations import LegacySemanticConfiguration
-from LaSSI.utils.property_bags import is_property_bag
 
 # from gsmtosimilarity.string_similarity_factory import StringSimilarity
 # from inference_engine.EntityRelationship import Relationship, Grouping, Singleton, NodeEntryPoint
@@ -33,28 +32,10 @@ class Graph:
 def isGoodKey(x):
     return x is None or isinstance(x, str) or isinstance(x, int) or isinstance(x, float) or isinstance(x, bool)
 
-def _properties_as_object(d):
-    """Write a property bag to disk as a JSON object, whatever its in-memory shape.
-
-    Bags are stored in memory as a tuple of (key, value) pairs sorted by key (see `LaSSI.utils.property_bags`)
-    and were a `frozenset` of the same pairs before 2026-09-22. Both are sequences, so json would write them
-    as an array and every reader that does `properties.items()` would break, silently changing the cache
-    format along with the in-memory one. Converting here keeps the on-disk shape exactly as it has always
-    been, so old caches stay readable and the change stays where it belongs.
-    """
-    props = d.get("properties") if isinstance(d, dict) else None
-    if props is None or isinstance(props, dict) or not is_property_bag(props):
-        return d
-    out = dict(d)
-    out["properties"] = dict(props)
-    return out
-
-
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if o is None:
             return None
-        o = _properties_as_object(o)
         if isinstance(o, defaultdict):
             if not all(map(isGoodKey, o.keys())):
                 return {str(k): self.default(v) for k, v in o.items()}

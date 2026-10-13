@@ -123,7 +123,7 @@ class PseudoVerbCopulaRecoveryRule(StructuralRewriteRule):
         be_edge = Singleton(
             id=edge.id,
             named_entity="be",
-            properties=(),
+            properties=frozenset(),
             min=edge.min,
             max=edge.max,
             type="verb",

@@ -104,7 +104,7 @@ def create_existential(G, nodes, node_functions):
                     G.add_edge(key, ex_node.id, label=Singleton(
                         id=-1,
                         named_entity="is",
-                        properties=(),
+                        properties=frozenset(dict().items()),
                         min=-1,
                         max=-1,
                         type="verb",
@@ -117,7 +117,7 @@ def create_existential(G, nodes, node_functions):
                     edgeLabel=Singleton(
                         id=-1,
                         named_entity="is",
-                        properties=(),
+                        properties=frozenset(dict().items()),
                         min=-1,
                         max=-1,
                         type="verb",
@@ -231,7 +231,7 @@ def _build_implicit_be_kernel(root_node):
     be_label = Singleton(
         id=-1,
         named_entity="be",
-        properties=(),
+        properties=frozenset(dict().items()),
         min=root_node.min,
         max=root_node.max,
         type="verb",
@@ -488,7 +488,7 @@ def create_sentence(G, edges, nodes, negations, root_sentence_id, found_preposit
                             edgeLabel=edge_target,
                             isNegated=edge[3]['isNegated']
                         ),
-                        properties=(),
+                        properties=frozenset(dict()),
                     )
                     add_props_type_key = 'SENTENCE'
                 else:
@@ -506,7 +506,7 @@ def create_sentence(G, edges, nodes, negations, root_sentence_id, found_preposit
                             edgeLabel=edge_label,
                             isNegated=edge[3]['isNegated']
                         ),
-                        properties=(),
+                        properties=frozenset(dict()),
                     )
 
                 kernel, properties, kernel_nodes = add_to_properties(
@@ -1360,7 +1360,7 @@ def create_edge_kernel(G, node, node_functions):
             edgeLabel=node if node is not None else None,
             isNegated=False
         ),
-        properties=(),  # TODO: Should this be empty?
+        properties=frozenset(),  # TODO: Should this be empty?
     )
 
 
@@ -1452,7 +1452,7 @@ def rewrite_action_ed_node(node, action_ed_node, negations):
                 max=node.max,
                 confidence=1,
                 kernel=None,
-                properties=(),  # TODO: Keep properties
+                properties=frozenset(),  # TODO: Keep properties
             ),
             isNegated=node.kernel.isNegated if node.kernel is not None else lemma_node_edge_label_name != refactored_lemma_node_edge_label_name,
         ),
