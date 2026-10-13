@@ -566,6 +566,7 @@ class HOnK(RDFGraph):
         # current cut-down TTL, ~200MB even at the WordNet scale described in
         # the original lazy-loading comment (~210K eq + ~788K hier pairs).
         self._build_relation_adjacency()
+        self._apply_synonymy_mode()
         self._syn_cache: dict = {}
         self._trcl_cache: dict = {}
 
@@ -905,6 +906,25 @@ class HOnK(RDFGraph):
     # trustworthy equivalence set and is treated as having none.
     _MAX_SYNONYMY = 64
 
+    # Synonymy source, fixed per run by LASSI_SYNONYMY:
+    #   capped  (default) - transitive closure of HOnK's eq edges, bounded by _MAX_SYNONYMY (v4.3 behaviour);
+    #   curated - the curated eq links in the pickle named by LASSI_CURATED_EQ, used one hop only (no closure).
+    # The curated links keep a pair only if it shares a WordNet synset, is an inflected/alternative form, or is
+    # asserted by both ConceptNet Synonym and Wiktionary synonyms (rule and build script recorded with the file).
+    def _apply_synonymy_mode(self):
+        import pickle
+        self._synonymy_mode = os.environ.get("LASSI_SYNONYMY", "capped")
+        if self._synonymy_mode == "capped":
+            return
+        if self._synonymy_mode != "curated":
+            raise ValueError(f"LASSI_SYNONYMY must be 'capped' or 'curated', not {self._synonymy_mode!r}")
+        path = os.environ.get("LASSI_CURATED_EQ")
+        if not path or not os.path.exists(path):
+            raise FileNotFoundError(f"LASSI_SYNONYMY=curated needs LASSI_CURATED_EQ to name the curated eq pickle ({path!r})")
+        with open(path, "rb") as f:
+            self._eq_adj = pickle.load(f)
+        print(f"[HOnK]   synonymy: curated, one hop ({len(self._eq_adj)} terms) from {path}", flush=True)
+
     def getSynonymy(self, k):
         """Return the set of all labels equivalent to *k* (including *k* itself).
 
@@ -917,6 +937,10 @@ class HOnK(RDFGraph):
         """
         if k in self._syn_cache:
             return self._syn_cache[k]
+        if self._synonymy_mode == "curated":
+            synonyms = {k} | set(self._eq_adj.get(k, ()))
+            self._syn_cache[k] = synonyms
+            return synonyms
         synonyms = {k}
         frontier = {k}
         oversized = False
