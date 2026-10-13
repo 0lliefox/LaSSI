@@ -4,6 +4,7 @@ import os
 from LaSSI.structures import DependencyRoles
 from LaSSI.structures.internal_graph.EntityRelationship import Singleton
 from LaSSI.ner.MergeSetOfSingletons import merge_properties
+from LaSSI.ner.node_functions import create_props_for_singleton
 
 
 _MODIFIER_CONTEXT_EDGES = (
@@ -61,7 +62,7 @@ class GraphPreprocessor:
                 new_singleton = Singleton(
                     id=singleton.id,
                     named_entity="?" + str(self.existentials.increaseAndGetExistential()),
-                    properties=frozenset(preserved_props.items()),
+                    properties=create_props_for_singleton(preserved_props),
                     min=singleton.min,
                     max=singleton.max,
                     type='existential',

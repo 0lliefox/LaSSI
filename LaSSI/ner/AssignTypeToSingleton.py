@@ -12,7 +12,7 @@ from itertools import repeat
 
 from LaSSI.external_services.Services import Services
 from LaSSI.ner.MergeSetOfSingletons import merge_properties
-from LaSSI.ner.node_functions import NodeFunctions
+from LaSSI.ner.node_functions import NodeFunctions, create_props_for_singleton
 from LaSSI.ner.string_functions import is_label_verb, does_string_have_negations
 from LaSSI.ner.topological_sort import topologicalSort
 from LaSSI.structures.internal_graph.EntityRelationship import Singleton, Grouping, SetOfSingletons, Relationship
@@ -327,7 +327,7 @@ class AssignTypeToSingleton:
                 self.nodes[gsm_item['id']] = Singleton(
                     id=gsm_item['id'],
                     named_entity=name,
-                    properties=frozenset(gsm_item['properties'].items()),
+                    properties=create_props_for_singleton(gsm_item['properties']),
                     min=min(grouped_nodes, key=lambda x: x.min).min,
                     max=max(grouped_nodes, key=lambda x: x.max).max,
                     type=specific_type,
@@ -436,7 +436,7 @@ class AssignTypeToSingleton:
         self.nodes[gsm_item['id']] = Singleton(
             id=gsm_item['id'],
             named_entity=name,
-            properties=frozenset(gsm_item['properties'].items()),
+            properties=create_props_for_singleton(gsm_item['properties']),
             min=min_value,
             max=max_value,
             type=node_type,
@@ -526,7 +526,7 @@ class AssignTypeToSingleton:
             new_node = Singleton(
                 id=new_id,
                 named_entity=name,
-                properties=frozenset(gsm_item['properties'].items()),
+                properties=create_props_for_singleton(gsm_item['properties']),
                 min=min(grouped_nodes, key=lambda x: x.min).min,
                 max=max(grouped_nodes, key=lambda x: x.max).max,
                 type=specific_type,
@@ -1039,7 +1039,7 @@ class AssignTypeToSingleton:
                     self.nodes[self.node_functions.get_node_id(edge['score']['parent'])] = Singleton(
                         id=source_node.id,
                         named_entity=source_node.named_entity,
-                        properties=frozenset(temp_prop.items()),
+                        properties=create_props_for_singleton(temp_prop),
                         min=source_node.min,
                         max=source_node.max,
                         type=source_node.type,  # TODO: This type is the ENUM case (i.e. 3 instead of NOT) so use dacite
@@ -1141,7 +1141,7 @@ class AssignTypeToSingleton:
                     edgeLabel=Singleton(
                         id=gsm_item['id'],
                         named_entity=edge_label_name,
-                        properties=frozenset(dict().items()),
+                        properties=(),
                         min=node_min,
                         max=node_max,
                         type=edge_type,
@@ -1155,7 +1155,7 @@ class AssignTypeToSingleton:
                 edgeLabel=Singleton(
                     id=gsm_item['id'],
                     named_entity=edge_label_name,
-                    properties=frozenset(dict().items()),
+                    properties=(),
                     min=node_min,
                     max=node_max,
                     type=edge_type,

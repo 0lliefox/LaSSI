@@ -163,7 +163,7 @@ class GraphSanitiser:
             return Singleton(
                 id=new_root_id,
                 named_entity='compound',
-                properties=frozenset(),
+                properties=(),
                 min=new_root_data.min,
                 max=new_root_data.max,
                 type='non_verb',
@@ -416,7 +416,7 @@ class GraphSanitiser:
             new_label = Singleton(
                 id=right_id,
                 named_entity='compound',
-                properties=frozenset(),
+                properties=(),
                 min=right_node.min,
                 max=right_node.max,
                 type='non_verb',
@@ -510,7 +510,7 @@ class GraphSanitiser:
             edge_singleton = Singleton(
                 id=kernel_id,
                 named_entity='nmod',
-                properties=frozenset(dict().items()),
+                properties=(),
                 min=kernel_node.min,
                 max=kernel_node.max,
                 type='non_verb',

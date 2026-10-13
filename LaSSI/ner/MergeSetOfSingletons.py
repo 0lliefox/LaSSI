@@ -359,7 +359,7 @@ def GraphNER_withProperties(node, is_simplistic_rewriting, meu_db_row, honk, exi
         merged_node = Singleton(
             id=node.id,
             named_entity=final_simplistic_name,
-            properties=frozenset(new_properties.items()),
+            properties=create_props_for_singleton(new_properties),
             min=sorted_entities[0].min,
             max=sorted_entities[len(sorted_entities) - 1].max,
             type=chosen_entity.type if chosen_entity else "ENTITY",

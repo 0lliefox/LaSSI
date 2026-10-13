@@ -76,7 +76,7 @@ def create_existential(edges, nodes):
                     edgeLabel=Singleton(
                         id=-1,
                         named_entity="is",
-                        properties=frozenset(dict().items()),
+                        properties=(),
                         min=-1,
                         max=-1,
                         type="verb",
@@ -236,7 +236,7 @@ def create_sentence(edges, nodes, negations, root_sentence_id, found_preposition
                     edgeLabel=edge_label,
                     isNegated=edge.isNegated
                 ),
-                properties=frozenset(dict()),
+                properties=(),
             )
 
             kernel, properties, kernel_nodes = add_to_properties(
@@ -818,7 +818,7 @@ def create_edge_kernel(node):
             edgeLabel=node.update_name(lemmatize_verb(node.named_entity)) if node is not None else None,
             isNegated=False
         ),
-        properties=frozenset(),  # TODO: Should this be empty?
+        properties=(),  # TODO: Should this be empty?
     )
 
 
@@ -912,7 +912,7 @@ def rewrite_action_ed_node(node, action_ed_node, negations):
                 max=node.max,
                 confidence=1,
                 kernel=None,
-                properties=frozenset(),  # TODO: Keep properties
+                properties=(),  # TODO: Keep properties
             ),
             isNegated=node.kernel.isNegated if node.kernel is not None else lemma_node_edge_label_name != refactored_lemma_node_edge_label_name,
         ),

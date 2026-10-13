@@ -445,7 +445,7 @@ class KernelLogicalRewriter:
         return Singleton(
             id=self.node_functions.fresh_id(),
             named_entity=name,
-            properties=frozenset(),
+            properties=(),
             min=reference_node.min,
             max=reference_node.max,
             type=f"logical_{property_name}",

@@ -1,5 +1,6 @@
 import networkx as nx
 from LaSSI.structures.internal_graph.EntityRelationship import Singleton, Grouping
+from LaSSI.ner.node_functions import create_props_for_singleton
 
 from LaSSI.ner.string_functions import does_string_have_negations, is_position_key as _is_position_key
 
@@ -85,7 +86,7 @@ class GraphBuilder:
                     G.add_edge(parent_id, child_id, label=Singleton(
                         id=parent_id,
                         named_entity=edge_label_text,
-                        properties=frozenset(dict().items()),
+                        properties=(),
                         min=G.nodes[parent_id]['data'].min,
                         max=G.nodes[parent_id]['data'].max,
                         type=edge_type,
@@ -402,7 +403,7 @@ class GraphBuilder:
         return Singleton(
             id=gsm_item['id'],
             named_entity=name,
-            properties=frozenset(gsm_item['properties'].items()),
+            properties=create_props_for_singleton(gsm_item['properties']),
             min=min_value,
             max=max_value,
             type=node_type,
