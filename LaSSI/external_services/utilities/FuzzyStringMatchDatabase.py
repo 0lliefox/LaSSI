@@ -16,6 +16,17 @@ from psycopg2 import Error, sql
 from LaSSI.files.ReadFileContent import ReadFileContent
 
 
+def _append_once(bucket, item):
+    """Append `item` unless already present, so each score's matches keep the SQL query's order.
+
+    These buckets used to be sets, whose iteration order follows CPython's per-process string hashing. The
+    NER stage takes the first candidate among equal-confidence matches, so the set order decided, per run,
+    whether e.g. "Whitley Bay" was typed LOC or noun. A list in a total ORDER BY is the same on every run.
+    """
+    if item not in bucket:
+        bucket.append(item)
+
+
 class FuzzyStringMatchDatabase:
     _instance = None
 
@@ -56,31 +67,31 @@ class FuzzyStringMatchDatabase:
 
     def similarity(self, table, query, score=1.0):
         query = query.replace("'", "''")
-        poll = defaultdict(set)
+        poll = defaultdict(list)
         with self.connection.cursor() as cursor:
             sql_query = f"""SELECT idx, similarity(t, '{query}') AS sml
                                FROM {table}
                                WHERE t % '{query}' AND similarity(t, '{query}')>={score}
-                               ORDER BY sml DESC, t"""
+                               ORDER BY sml DESC, t, idx"""
             cursor.execute(sql_query)
 
             for monad, score in cursor:
-                poll[score].add(monad)
+                _append_once(poll[score], monad)
         return poll
 
     def typed_similarity(self, table, query, threshold=1.0):
         query = query.replace("'", "''")
-        poll = defaultdict(set)
+        poll = defaultdict(list)
         with self.connection.cursor() as cursor:
             sql_query = f"""SELECT idx, similarity(t, '{query}') AS sml, type
                                FROM {table}
                                WHERE t % '{query}' AND similarity(t, '{query}') >= {threshold}
-                               ORDER BY sml DESC, t"""
+                               ORDER BY sml DESC, t, idx, type"""
             cursor.execute(sql_query)
 
             for monad, db_similarity_score, r_type in cursor:
                 for single_type in r_type.split(","):
-                    poll[db_similarity_score].add((monad, single_type))
+                    _append_once(poll[db_similarity_score], (monad, single_type))
 
         return poll
 
@@ -90,14 +101,14 @@ class FuzzyStringMatchDatabase:
             cursor.execute(f"""SELECT idx, t, similarity(t, '{word}') AS sml
                                FROM {table}
                                WHERE t % '{word}' AND t like '%{ending}'
-                               ORDER BY sml DESC, t""")
+                               ORDER BY sml DESC, t, idx""")
             records = cursor.fetchall()
             for row in records:
                 score = float(row[2])
                 if score not in poll:
-                    poll[score] = set()
+                    poll[score] = []
                 if row[1].endswith(ending):
-                    poll[score].add(tuple([row[0], row[1]]))
+                    _append_once(poll[score], tuple([row[0], row[1]]))
             cursor.close()
         return poll
 
