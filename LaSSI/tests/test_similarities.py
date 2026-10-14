@@ -51,7 +51,8 @@ class TestSimilarities(unittest.TestCase):
         if not os.path.exists(evidence_cases_dir):
             self.skipTest(f"Evidence cases directory not found at {evidence_cases_dir}")
             
-        all_tests = sorted([f.replace(".yaml", "") for f in os.listdir(evidence_cases_dir) if f.endswith(".yaml")])
+        all_tests = sorted([f.replace(".yaml", "") for f in os.listdir(evidence_cases_dir)
+                            if f.endswith(".yaml") and not f.endswith(".meta.yaml")])  # sidecars hold case metadata
         
         for test_name in all_tests:
             with self.subTest(test_name=test_name):

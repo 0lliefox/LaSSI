@@ -106,10 +106,15 @@ class Services:
     def getStanzaSTNLP(self):
         return self.stanza.stNLP
 
-    def resolveTimeUnits(self, sentences):
+    def resolveTimeUnits(self, sentences, reference_date=None):
         if self.old_java_Service is None:
             self.logger("init old java service")
             self.old_java_Service = OldWrapper.getInstance()
+        if reference_date is not None:
+            # Relative expressions resolved against the document's own date (issue 158); fails loudly rather than
+            # fall back to the run date, which would silently give different values.
+            from LaSSI.external_services.AnchoredTime import time_units
+            return time_units(list(sentences), reference_date)
         try:
             return self.old_java_Service.getTimeUnits(sentences)
         except Exception as e:

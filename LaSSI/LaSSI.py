@@ -50,6 +50,25 @@ def write_variable_to_file(dir, text):
 def logger_func(x):
     return print(x)
 
+def resolve_reference_date(dataset_name, explicit=None):
+    """The reference date for a dataset (issue 158): `explicit` if given, else the `reference_date` key of the sidecar
+    `<stem>.meta.yaml` next to the dataset file, else None. Normalised to YYYY-MM-DD."""
+    import pathlib
+    from LaSSI.external_services.AnchoredTime import normalise_reference_date
+    if explicit is not None:
+        return normalise_reference_date(explicit)
+    try:
+        sidecar = pathlib.Path(str(dataset_name)).with_suffix("").as_posix() + ".meta.yaml"
+    except Exception:
+        return None
+    if not os.path.isfile(sidecar):
+        return None
+    import yaml
+    with open(sidecar, encoding="utf-8") as fh:
+        meta = yaml.safe_load(fh) or {}
+    return normalise_reference_date(meta.get("reference_date")) if isinstance(meta, dict) else None
+
+
 class LaSSI():
     def __init__(self, dataset_name: str,
                  fuzzyDBs: str | DatabaseConfiguration,
@@ -70,6 +89,7 @@ class LaSSI():
                  use_multiprocessing=True,
                  generate_png_matrix=True,
                  for_paper=True,
+                 reference_date=None,
                  ):
         self.use_multiprocessing = use_multiprocessing
         self.for_paper = for_paper
@@ -92,6 +112,9 @@ class LaSSI():
         self.run_ex_post = run_ex_post
         self.create_catabolites_dir(dataset_name, transformation)
         self.dataset_name = dataset_name
+        # The date relative time expressions ("Monday", "this week") are resolved against (issue 158): the argument,
+        # else `reference_date` in the dataset's sidecar `<stem>.meta.yaml`, else none (SUTime's run date).
+        self.reference_date = resolve_reference_date(dataset_name, reference_date)
         tmp = f"{self.dataset_name}_clusters.txt"
         if os.path.isfile(tmp):
             self.clusters_file = tmp
@@ -807,6 +830,7 @@ class LaSSI():
                 lambda: ExplainTextWithNER(self, sentences, disable_fuzzy_honk=self.disable_fuzzy_honk),
                 json_dumps, self.force, self.should_benchmark
             )
+            self._record_reference_date()
         self.logger(f"Generating meuDB time: {meu_execution_time} seconds")
 
         # Attach the chunk role discovered by ChunkProfiler to each
@@ -907,6 +931,21 @@ class LaSSI():
         except Exception as exc:
             self.logger(f"Could not persist row/sub-sentence map: {exc}")
 
+    def _reference_date_marker(self):
+        return os.path.join(self.catabolites, "reference_date.txt")
+
+    def _cached_reference_date(self) -> str:
+        """The reference date the cached meuDB was built with ("" for none, and for caches older than the marker)."""
+        try:
+            with open(self._reference_date_marker(), encoding="utf-8") as fh:
+                return fh.read().strip()
+        except OSError:
+            return ""
+
+    def _record_reference_date(self):
+        with open(self._reference_date_marker(), "w", encoding="utf-8") as fh:
+            fh.write(self.reference_date or "")
+
     def _invalidate_stale_cache(self, expected_count):
         expected_row_count = len(self.row_to_sub_indices) if hasattr(self, 'row_to_sub_indices') else expected_count
         
@@ -933,6 +972,9 @@ class LaSSI():
             except Exception:
                 core_caches_valid = False
                 break
+        # The NER cache holds time values resolved against a reference date (issue 158); another date needs a new one.
+        if core_caches_valid and os.path.isfile(self.meuDB) and self._cached_reference_date() != (self.reference_date or ""):
+            core_caches_valid = False
 
         for path in (self.datagramdb_output, self.internals, self.logical_rewriting, self.meuDB):
             if not os.path.isfile(path):

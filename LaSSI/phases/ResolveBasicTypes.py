@@ -25,11 +25,11 @@ class ResolveBasicTypes:
         self.sentences_benchmark = Benchmark()
         self.use_multiprocessing = use_multiprocessing
 
-    def resolve_basic_types(self, list_sentences):
+    def resolve_basic_types(self, list_sentences, reference_date=None):
         if self.disable_a_priori:
             return [MeuDB(sentence, []) for sentence in list_sentences]
 
-        all_time_units = self.services.resolveTimeUnits(list_sentences)
+        all_time_units = self.services.resolveTimeUnits(list_sentences, reference_date=reference_date)
         db = [None] * len(list_sentences)
 
         tasks_args = []
@@ -69,4 +69,5 @@ class ResolveBasicTypes:
 
 
 def ExplainTextWithNER(self, sentences, disable_fuzzy_honk=False):
-    return ResolveBasicTypes(self.recall_threshold, self.precision_threshold, self.disable_a_priori, self.use_multiprocessing, disable_fuzzy_honk).resolve_basic_types(sentences)
+    return ResolveBasicTypes(self.recall_threshold, self.precision_threshold, self.disable_a_priori, self.use_multiprocessing, disable_fuzzy_honk).resolve_basic_types(
+        sentences, reference_date=getattr(self, "reference_date", None))

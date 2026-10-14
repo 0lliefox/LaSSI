@@ -124,7 +124,7 @@ def get_and_run_all_sentences(folders, transformation=SentenceRepresentation.Log
     yaml_files = []
     for folder_name in folders:
         folder_path = os.path.join(sentences_dir, folder_name)
-        yaml_files.extend(glob.glob(os.path.join(folder_path, "*.yaml")))
+        yaml_files.extend(f for f in glob.glob(os.path.join(folder_path, "*.yaml")) if not f.endswith(".meta.yaml"))  # sidecars hold case metadata
 
     yaml_files.sort(key=sort_by_numeric_value)
     os.chdir(script_dir)
