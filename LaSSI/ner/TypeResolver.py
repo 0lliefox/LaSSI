@@ -144,6 +144,15 @@ def _filter_spurious_meus(meu_db_row, honk):
         return meu_db_row
 
 
+def type_rank(type_name, meu_types) -> int:
+    """A type's place in the resolution priority (`meu_types` in raw_data/type_resolution_rules.json, the order the
+    equal-confidence rule below already applies); unlisted types (noun, None, ...) come after. Used wherever
+    candidates of equal confidence would otherwise be decided by their order in the meuDB."""
+    order = [str(t).upper() for t in (meu_types or [])]
+    t = str(type_name).upper()
+    return order.index(t) if t in order else len(order)
+
+
 class TypeResolver:
     def __init__(self, meu_db_row, honk):
         self.honk = honk
@@ -263,7 +272,12 @@ class TypeResolver:
             meu for meu in self.meu_db_row.multi_entity_unit
             if " " in meu.text or re.search(r"\d[-:T]\d", meu.text)
         ]
-        multi_word_meus.sort(key=lambda x: (-len(x.text), str(x.type) == "None", -x.confidence))
+        # Among equal-length, equal-confidence candidates for the same text, the
+        # first one merged wins. Break that tie by type priority, not by the
+        # order the fuzzy-match table returned them.
+        _meu_types = self.type_rules.get("meu_types", [])
+        multi_word_meus.sort(key=lambda x: (-len(x.text), str(x.type) == "None", -x.confidence,
+                                            type_rank(x.type, _meu_types)))
 
         for meu in multi_word_meus:
             # For no-space MEUs the tokenizer may have glued a trailing
@@ -455,7 +469,7 @@ class TypeResolver:
                                 ):
                                     non_verb_items = sorted(
                                         [y for y in meu_entities if y.type not in ("VERB", "verb")],
-                                        key=lambda y: y.confidence,
+                                        key=lambda y: (y.confidence, -type_rank(y.type, self.type_rules.get("meu_types", []))),
                                         reverse=True
                                     )
                                     if non_verb_items:
@@ -474,7 +488,7 @@ class TypeResolver:
                                     ):
                                         non_verb_items = sorted(
                                             [y for y in meu_entities if y.type not in ("VERB", "verb")],
-                                            key=lambda y: y.confidence,
+                                            key=lambda y: (y.confidence, -type_rank(y.type, self.type_rules.get("meu_types", []))),
                                             reverse=True
                                         )
                                         best_type = non_verb_items[0].type if non_verb_items else item_type
@@ -526,7 +540,7 @@ class TypeResolver:
                             or 'extra' in dict(item.properties)):
                         non_verb_items = sorted(
                             [y for y in meu_entities if str(y.type).lower() != 'verb'],
-                            key=lambda y: y.confidence,
+                            key=lambda y: (y.confidence, -type_rank(y.type, self.type_rules.get("meu_types", []))),
                             reverse=True
                         )
                         best_type = non_verb_items[0].type if non_verb_items else 'noun'
