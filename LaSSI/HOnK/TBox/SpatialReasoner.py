@@ -172,22 +172,11 @@ def _space_mismatch_contradiction(lhs, rhs) -> bool:
     # a contradiction — regardless of the spatial-relation direction.
     if _space_coreference_verdict(lhs, rhs) is not None:
         return False
-    lhs_names = _space_near_place_names(lhs)
-    rhs_names = _space_near_place_names(rhs)
-    if not lhs_names or not rhs_names:
+    lhs_places = _space_place_values(lhs, near=True)
+    rhs_places = _space_place_values(rhs, near=True)
+    if not lhs_places or not rhs_places:
         return False
-    if lhs_names & rhs_names:
-        return False
-    if {x.lower() for x in lhs_names} & {x.lower() for x in rhs_names}:
-        return False
-    if not HOnKSingleton.isReady():
-        return True
-    kb = HOnKSingleton.get()
-    for ln in lhs_names:
-        for rn in rhs_names:
-            if _geo_names_compatible(kb, ln, rn):
-                return False
-    return True
+    return _places_derivably_disjoint(lhs_places, rhs_places, require_unique_on_both=False)
 
 def _space_named_geo_entities(formula):
     if not isinstance(formula, (FBinaryPredicate, FUnaryPredicate)):
@@ -241,32 +230,222 @@ def _space_named_geo_entities(formula):
     return out if out else None
 
 def _space_city_mismatch_contradiction(lhs, rhs) -> bool:
+    # "between A and B" vs "between C and B": the two SPACE descriptors share an
+    # endpoint (B) but describe different route segments. A pure subset/superset
+    # ({A} vs {A,B}) is specificity rather than contradiction, so a contradiction
+    # needs a place on EACH side with no counterpart on the other, and that pair
+    # must be derivably distinct (see _places_derivably_disjoint).
     if _space_coreference_verdict(lhs, rhs) is not None:
         return False
-    lhs_names = _space_named_geo_entities(lhs)
-    rhs_names = _space_named_geo_entities(rhs)
-    if not lhs_names or not rhs_names:
+    lhs_places = _space_place_values(lhs, near=False)
+    rhs_places = _space_place_values(rhs, near=False)
+    if not lhs_places or not rhs_places:
         return False
-    # Two SPACE descriptors contradict when their location SETS differ: each
-    # side names a place with no geo-compatible counterpart on the other. This
-    # is the "between A and B" vs "between C and B" case — they share an
-    # endpoint (B) but describe different route segments, so a shared name no
-    # longer grants blanket immunity. A pure subset/superset ({A} vs {A,B}) is
-    # specificity rather than contradiction, so we require an incompatible
-    # *unique* element on BOTH sides.
+    return _places_derivably_disjoint(lhs_places, rhs_places, require_unique_on_both=True)
+
+
+# --- Deriving a spatial contradiction (v4.4) ---------------------------------
+#
+# The confidence score is 0 only when a contradiction is derived, never when
+# compatibility merely cannot be proven (thesis Ch.5, Definition of confidence;
+# Ch.6, Refuted needs an explicit contradiction). Earlier versions declared two
+# SPACE descriptors contradictory whenever name_eq could not prove their places
+# compatible, so missing knowledge ("Newcastle upon Tyne" vs "Newcastle", or a
+# generic "station" vs "Monkseaton station") became a contradiction. A spatial
+# contradiction is now derived from four stated assumptions:
+#   1. same event: it is only tested between atoms the comparator already treats
+#      as describing the same event;
+#   2. one place per event: a different place for that event conflicts;
+#   3. unique names: distinct *specific* place names denote distinct places,
+#      where a generic class noun ("station", "metro station") is not a name and
+#      spelling variants ("Newcastle upon Tyne" / "Newcastle", "Haymarket
+#      Station" / "Haymarket") are one name;
+#   4. containment: a place inside the other (HOnK isA/partOf reachability via
+#      name_eq) is specificity, not contradiction.
+# Two distinct names conflict only when they are of the same, known kind
+# (street vs street, station vs station, settlement vs settlement): places of
+# one kind at one granularity do not overlap. Different or unknown kinds cannot
+# be shown disjoint, so the pair stays indifferent.
+
+_STREET_TYPE_NOUNS_CACHE = None
+
+
+def _street_type_nouns():
+    global _STREET_TYPE_NOUNS_CACHE
+    if _STREET_TYPE_NOUNS_CACHE is None:
+        import os
+        path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "raw_data", "nouns", "street_type_nouns.txt")
+        try:
+            with open(path, encoding="utf-8") as fh:
+                _STREET_TYPE_NOUNS_CACHE = frozenset(l.strip().lower() for l in fh if l.strip())
+        except OSError:
+            _STREET_TYPE_NOUNS_CACHE = frozenset()
+    return _STREET_TYPE_NOUNS_CACHE
+
+
+def _class_nouns():
+    from LaSSI.ner.string_functions import _ontology_class_suffix_terms
+    return frozenset(_ontology_class_suffix_terms()) | _street_type_nouns()
+
+
+def _name_tokens(name):
+    return [t for t in str(name).lower().replace("-", " ").replace("/", " ").split() if t and t != "the"]
+
+
+def _is_generic_place_name(name) -> bool:
+    """A name made only of class nouns ("station", "metro station", "car park")
+    names a kind of place, not a place."""
+    toks = _name_tokens(name)
+    classes = _class_nouns()
+    if not toks:
+        return True
+    i = 0
+    while i < len(toks):
+        if i + 1 < len(toks) and f"{toks[i]} {toks[i + 1]}" in classes:
+            i += 2
+        elif toks[i] in classes:
+            i += 1
+        else:
+            return False
+    return True
+
+
+def _normalised_place_name(name) -> str:
+    """One spelling for the variants of a name: lower-cased, "X upon Y" read as
+    X, and trailing class nouns dropped ("Haymarket Metro station" -> "haymarket")."""
+    toks = _name_tokens(name)
+    if "upon" in toks[1:]:
+        toks = toks[:toks.index("upon")]
+    classes = _class_nouns()
+    while len(toks) > 1:
+        if len(toks) > 2 and f"{toks[-2]} {toks[-1]}" in classes:
+            toks = toks[:-2]
+        elif toks[-1] in classes:
+            toks = toks[:-1]
+        else:
+            break
+    return " ".join(toks)
+
+
+_CLASS_TYPED_MEMBERS_CACHE = None
+_BROAD_PLACE_NOUNS = frozenset({"premises", "building", "property", "site", "location", "venue", "establishment",
+                                "hub", "metro", "area", "region", "district", "zone", "sector", "vicinity",
+                                "neighbourhood", "neighborhood", "part", "access", "line", "service", "network",
+                                "route", "direction", "endpoint", "corridor", "track"})
+
+
+def _class_typed_members():
+    """name -> the HOnK isA classes it belongs to whose head is a place class noun
+    (e.g. "Haymarket" -> {"metro station"}). Built once from the isA adjacency."""
+    global _CLASS_TYPED_MEMBERS_CACHE
+    if _CLASS_TYPED_MEMBERS_CACHE is None:
+        out = {}
+        if HOnKSingleton.isReady():
+            # Specific facility classes only: broad heads ("place", "site", "area",
+            # "location", "building") would type almost anything.
+            from LaSSI.ner.string_functions import _ontology_class_suffix_terms
+            broad = _BROAD_PLACE_NOUNS | _street_type_nouns()
+            heads = frozenset(_ontology_class_suffix_terms()) - broad
+            isA = getattr(HOnKSingleton.get(), "_isA_supers", {}) or {}
+            for cls, members in isA.items():
+                toks = _name_tokens(cls) if isinstance(cls, str) else []
+                if toks and (toks[-1] in heads or " ".join(toks[-2:]) in heads):
+                    for m in members:
+                        out.setdefault(m, set()).add(cls)
+        _CLASS_TYPED_MEMBERS_CACHE = out
+    return _CLASS_TYPED_MEMBERS_CACHE
+
+
+def _place_kind(name, value) -> str | None:
+    """The kind of place a name denotes, from its own class noun, else from its
+    specification (e.g. Haymarket[extra: Metro station]), else from a settlement
+    NER type. None when it cannot be told."""
+    streets = _street_type_nouns()
+    from LaSSI.ner.string_functions import _ontology_class_suffix_terms
+    classes = frozenset(_ontology_class_suffix_terms())
+
+    def kind_of(text):
+        toks = _name_tokens(text) if text else []
+        for k in range(len(toks) - 1, -1, -1):
+            if k > 0 and f"{toks[k - 1]} {toks[k]}" in classes:
+                return f"{toks[k - 1]} {toks[k]}"
+            if toks[k] in streets:
+                return "street"
+            if toks[k] in classes:
+                return "station" if toks[k] in ("station", "stop", "interchange", "metro") else toks[k]
+        return None
+
+    kind = kind_of(name)
+    if kind is None and value is not None and (getattr(value, "type", "") or "").upper() == "GPE":
+        kind = "settlement"
+    if kind is None and HOnKSingleton.isReady():
+        # A bare name typed by HOnK, e.g. Parmenides' "Haymarket isA metro station".
+        for c in sorted(_class_typed_members().get(name, ())):
+            kind = kind_of(c)
+            if kind is not None:
+                break
+    if kind is None and value is not None:
+        spec = getattr(value, "specification", None)
+        if isinstance(spec, str):
+            kind = kind_of(spec)
+    if kind is None and value is not None and (getattr(value, "type", "") or "").upper() == "GPE":
+        kind = "settlement"
+    return kind
+
+
+def _same_place(kb, a, b) -> bool:
+    if a == b or a.lower() == b.lower():
+        return True
+    if _normalised_place_name(a) == _normalised_place_name(b):
+        return True
+    return kb is not None and _geo_names_compatible(kb, a, b)
+
+
+def _places_derivably_disjoint(lhs_places: dict, rhs_places: dict, require_unique_on_both: bool) -> bool:
+    """`lhs_places`/`rhs_places` map a place name to its FVariable (or None).
+    True only when some pair of specific names, one per side, has no
+    counterpart on the other side and is of the same known kind."""
     kb = HOnKSingleton.get() if HOnKSingleton.isReady() else None
-
-    def _has_counterpart(name, others):
-        for o in others:
-            if name == o or name.lower() == o.lower():
-                return True
-            if kb is not None and _geo_names_compatible(kb, name, o):
-                return True
+    lhs = {n: v for n, v in lhs_places.items() if not _is_generic_place_name(n)}
+    rhs = {n: v for n, v in rhs_places.items() if not _is_generic_place_name(n)}
+    if not lhs or not rhs:
         return False
+    lhs_unique = {n: v for n, v in lhs.items() if not any(_same_place(kb, n, o) for o in rhs)}
+    rhs_unique = {n: v for n, v in rhs.items() if not any(_same_place(kb, n, o) for o in lhs)}
+    if require_unique_on_both:
+        if not lhs_unique or not rhs_unique:
+            return False
+    elif len(lhs_unique) < len(lhs) or len(rhs_unique) < len(rhs):
+        # A shared place: the descriptors overlap, which is not a contradiction.
+        return False
+    for ln, lv in lhs_unique.items():
+        lk = _place_kind(ln, lv)
+        if lk is None:
+            continue
+        for rn, rv in rhs_unique.items():
+            if _place_kind(rn, rv) == lk:
+                return True
+    return False
 
-    lhs_has_unique = any(not _has_counterpart(ln, rhs_names) for ln in lhs_names)
-    rhs_has_unique = any(not _has_counterpart(rn, lhs_names) for rn in rhs_names)
-    return lhs_has_unique and rhs_has_unique
+
+def _space_place_values(formula, near: bool):
+    """Name -> FVariable for the SPACE places that the near-place rule
+    (`near=True`) or the named-entity rule (`near=False`) compares; the same
+    selection as `_space_near_place_names` / `_space_named_geo_entities`."""
+    names = _space_near_place_names(formula) if near else _space_named_geo_entities(formula)
+    if not names:
+        return None
+    values = {}
+    for k, vs in (getattr(formula, "properties", None) or ()):
+        if k != "SPACE":
+            continue
+        for v in (vs if isinstance(vs, tuple) else (vs,)):
+            if isinstance(v, FVariable) and isinstance(v.name, str):
+                values[v.name.strip()] = v
+                stripped = _strip_geo_generic_suffix(v.name)
+                if stripped:
+                    values.setdefault(stripped.strip(), v)
+    return {n: values.get(n) for n in names}
 
 def _geo_names_compatible(kb, lhs_name: str, rhs_name: str) -> bool:
     """Compare location names exactly first, then case-fold as a fallback.
