@@ -79,3 +79,29 @@ reasons below. Each was measured by re-running the pipeline with one factor chan
 
 The released matrices and the frozen record are therefore the authoritative outputs of the evaluated system, and
 `reproduce_curb.py` recomputes every reported number from them.
+
+## The dataset files
+
+`neet/neet_v1.csv` is the benchmark as released: one row per evidence–claim pair, with its gold label and
+modification strategy. The pipeline reads the per-case files in `neet/evidence_cases/<case>.yaml` (the evidence,
+then the Supported, Refuted and Not Enough Evidence claims). Every system in the paper, LaSSI and the baselines
+alike, was evaluated on those case files. They differ from the CSV in seven cases, in wording only. None of the
+differences changes a gold label:
+
+| Case | Difference in the case file |
+|---|---|
+| `crime_004` | S claim reworded: "…investigation recorded … concluded with no suspect identified" |
+| `crime_006` | S claim reworded; N claim omits "found during a routine stop and search" |
+| `roadworks_003` | evidence omits its last sentence ("Road closure Order dates 13/04/2026 - 13/10/2026.. Delays likely. Work expected to end 2026-10-13.") |
+| `transport_002`, `transport_005`, `transport_006` | evidence omits the notice heading ("Northumberland Park Car Park", "University staircase work", "Monkseaton station work") |
+| `transport_004` | N claim spells "Whitley Bay" (the CSV on this branch read "Whiteley Bay" until it was corrected to match the OSF release) |
+
+Two further properties of the data:
+
+- **`transport_007`'s evidence ends mid-sentence** ("…for five days from Monday 13"). The scraper used in April 2026
+  kept a notice's title and first sentence, cut to 250 characters at a word boundary, and this notice reached that
+  limit. The same text is in every copy of the dataset, from the first scrape onward. The Supported claim's dates are
+  given earlier in the evidence, so the labels are unaffected.
+- **Times are read as written.** Met Office evidence gives UTC times ("at 2026-04-14T15:00Z") and the claims restate
+  that clock time ("at 3pm"), although Newcastle is on British Summer Time in April. LaSSI compares times the same
+  way, ignoring the time zone, so the labels and the scoring agree.
