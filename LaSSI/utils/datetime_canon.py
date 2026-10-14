@@ -11,7 +11,7 @@ _DATETIME_RE = re.compile(
           [:\-]?(?P<M>\d{1,2})?          #   minutes (optional)
           (?:[:\-](?P<S>\d{1,2}))?       #   seconds (optional)
           (?:\.\d+)?                     #   fractional seconds (discarded)
-          (?:[zZ]|[+\-]\d{2}:?\d{2})?    #   timezone marker (Z or ±HHMM)
+          (?P<tz>[zZ]|[+\-]\d{2}:?\d{2})?  #   timezone marker (Z or ±HHMM)
         )?
         $""",
     re.VERBOSE,
@@ -40,4 +40,17 @@ def canonicalize_datetime_string(s):
     if not (1 <= mo <= 12 and 1 <= d <= 31 and 0 <= h <= 23
             and 0 <= mi <= 59 and 0 <= se <= 59):
         return None
+    tz = m.group("tz")
+    if tz and tz not in ("z", "Z"):
+        # An explicit offset is converted to UTC, not dropped: "16:00+01:00" is 15:00Z.
+        # A time with no zone is read as written (the CURB convention).
+        import datetime as _dt
+        sign = 1 if tz[0] == "+" else -1
+        digits = tz[1:].replace(":", "")
+        offset = _dt.timedelta(hours=int(digits[:2]), minutes=int(digits[2:4]))
+        try:
+            t = _dt.datetime(y, mo, d, h, mi, se) - sign * offset
+        except ValueError:
+            return None
+        y, mo, d, h, mi, se = t.year, t.month, t.day, t.hour, t.minute, t.second
     return f"{y:04d}-{mo:02d}-{d:02d}T{h:02d}:{mi:02d}:{se:02d}Z"
