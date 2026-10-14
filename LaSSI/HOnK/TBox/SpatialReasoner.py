@@ -283,9 +283,30 @@ def _street_type_nouns():
     return _STREET_TYPE_NOUNS_CACHE
 
 
+_PLACE_CLASS_NOUNS_CACHE = None
+
+
+def _place_class_nouns():
+    """Generic place-class nouns ("station", "car park", "entrance", "road", "area"), read from the
+    noun lists in raw_data/nouns. HOnK's LocationNoun class is not used: it also holds named places
+    ("Newcastle", "Haymarket"), which must never count as generic."""
+    global _PLACE_CLASS_NOUNS_CACHE
+    if _PLACE_CLASS_NOUNS_CACHE is None:
+        import os
+        base = os.path.join(os.path.dirname(__file__), "..", "..", "..", "raw_data", "nouns")
+        out = set()
+        for f in ("facility_nouns.txt", "access_point_nouns.txt", "route_nouns.txt", "geo_suffix_nouns.txt"):
+            try:
+                with open(os.path.join(base, f), encoding="utf-8") as fh:
+                    out.update(l.strip().lower() for l in fh if l.strip())
+            except OSError:
+                continue
+        _PLACE_CLASS_NOUNS_CACHE = frozenset(out)
+    return _PLACE_CLASS_NOUNS_CACHE
+
+
 def _class_nouns():
-    from LaSSI.ner.string_functions import _ontology_class_suffix_terms
-    return frozenset(_ontology_class_suffix_terms()) | _street_type_nouns()
+    return _place_class_nouns() | _street_type_nouns()
 
 
 def _name_tokens(name):
@@ -343,9 +364,8 @@ def _class_typed_members():
         if HOnKSingleton.isReady():
             # Specific facility classes only: broad heads ("place", "site", "area",
             # "location", "building") would type almost anything.
-            from LaSSI.ner.string_functions import _ontology_class_suffix_terms
             broad = _BROAD_PLACE_NOUNS | _street_type_nouns()
-            heads = frozenset(_ontology_class_suffix_terms()) - broad
+            heads = _place_class_nouns() - broad
             isA = getattr(HOnKSingleton.get(), "_isA_supers", {}) or {}
             for cls, members in isA.items():
                 toks = _name_tokens(cls) if isinstance(cls, str) else []
@@ -361,8 +381,7 @@ def _place_kind(name, value) -> str | None:
     specification (e.g. Haymarket[extra: Metro station]), else from a settlement
     NER type. None when it cannot be told."""
     streets = _street_type_nouns()
-    from LaSSI.ner.string_functions import _ontology_class_suffix_terms
-    classes = frozenset(_ontology_class_suffix_terms())
+    classes = _place_class_nouns()
 
     def kind_of(text):
         toks = _name_tokens(text) if text else []
@@ -376,8 +395,6 @@ def _place_kind(name, value) -> str | None:
         return None
 
     kind = kind_of(name)
-    if kind is None and value is not None and (getattr(value, "type", "") or "").upper() == "GPE":
-        kind = "settlement"
     if kind is None and HOnKSingleton.isReady():
         # A bare name typed by HOnK, e.g. Parmenides' "Haymarket isA metro station".
         for c in sorted(_class_typed_members().get(name, ())):
