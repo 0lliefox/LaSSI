@@ -1,13 +1,38 @@
 import csv
+import sys
 import yaml
 import os
 from collections import defaultdict
+
+
+def reference_dates(csv_path):
+    """Each case's reference date: the date part of its evidence's `date_time` (the notice's publication date, as
+    written), which relative time expressions in the case are resolved against (LaSSI issue 158)."""
+    dates = {}
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        for row in csv.DictReader(f):
+            item_id = row['item_id']
+            if item_id and row.get('date_time'):
+                dates.setdefault(item_id[:-2], row['date_time'].strip()[:10])
+    return dates
+
+
+def write_reference_dates(csv_path, out_dir):
+    """Write `<case>.meta.yaml` (the sidecar LaSSI reads `reference_date` from) for every case in the CSV."""
+    for base_id, day in sorted(reference_dates(csv_path).items()):
+        with open(os.path.join(out_dir, f"{base_id}.meta.yaml"), 'w', encoding='utf-8') as f:
+            yaml.dump({'reference_date': day}, f, default_flow_style=False)
+
 
 def main():
     csv_path = 'neet/neet_v1.csv'
     out_dir = 'neet/evidence_cases'
     
     os.makedirs(out_dir, exist_ok=True)
+    if '--meta-only' in sys.argv:
+        # the case files have been edited by hand since they were generated; only (re)write the sidecars
+        write_reference_dates(csv_path, out_dir)
+        return
     
     cases = defaultdict(dict)
     
@@ -45,6 +70,7 @@ def main():
         
         with open(yaml_path, 'w', encoding='utf-8') as f:
             yaml.dump(yaml_data, f, allow_unicode=True, default_flow_style=False, width=float("inf"))
+    write_reference_dates(csv_path, out_dir)
 
 if __name__ == '__main__':
     main()
