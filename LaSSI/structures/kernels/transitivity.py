@@ -17,7 +17,9 @@ def _wordnet_has_object_frame(lemma: str):
     from nltk.corpus import wordnet as wn
     synsets = wn.synsets(lemma, pos=wn.VERB)
     if not synsets:
-        return None
+        # No verb sense at all, but a noun sense: the parser mis-tagged a noun ("footbridge") as a verb,
+        # which has no direct object. A word WordNet does not know in any sense stays unknown (None).
+        return False if wn.synsets(lemma, pos=wn.NOUN) else None
     return any(set(l.frame_ids()) & _OBJECT_FRAMES
                for s in synsets for l in s.lemmas() if l.name().lower() == lemma.lower())
 
@@ -25,6 +27,10 @@ def _wordnet_has_object_frame(lemma: str):
 def drops_object(lemmas, transitive_verbs) -> bool:
     """True if the kernel should drop the verb's target, i.e. treat the verb as having no direct object."""
     lemmas = {x for x in lemmas if x}
+    if not lemmas or "be" in lemmas:
+        # No lexical verb (lemmatize_verb strips auxiliaries, so "are" in "There are ..." leaves
+        # nothing) or the copula: a predicative complement, never a direct object.
+        return True
     if transitive_verbs.intersection(lemmas):
         return False
     frames = [_wordnet_has_object_frame(x) for x in sorted(lemmas)]
