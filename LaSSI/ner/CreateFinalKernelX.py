@@ -419,10 +419,6 @@ class CreateFinalKernelX:
                 main_id = self._earliest_non_subordinate_root(filtered_top_node_ids, sorted_G)
             main_kernel = self.G.nodes[main_id]['data'] if main_id is not None else final_kernel
             if isinstance(main_kernel, Singleton) and main_kernel.kernel is not None:
-                main_edge = (
-                    main_kernel.kernel.edgeLabel.named_entity
-                    if isinstance(main_kernel.kernel.edgeLabel, Singleton) else None
-                )
                 sibling_kernels = []
                 for nid in filtered_top_node_ids:
                     if nid == main_id:
@@ -430,9 +426,9 @@ class CreateFinalKernelX:
                     nd = self.G.nodes[nid]['data']
                     if not _is_verb_kernel(nd):
                         continue
-                    # Skip the root the kept main kernel itself derives from.
-                    if main_id is None and isinstance(nd.kernel.edgeLabel, Singleton) \
-                            and nd.kernel.edgeLabel.named_entity == main_edge:
+                    # Skip the root the kept main kernel itself derives from. By node, not by verb: two
+                    # clauses can share a verb ("Roadworks are underway, and delays are unlikely").
+                    if main_id is None and nid == selected_root_id:
                         continue
                     sibling_kernels.append(nd)
                 if sibling_kernels:

@@ -43,6 +43,23 @@ class NodeMerger:
             nx.set_node_attributes(G, {source.id: new_node}, 'data')
             nodes_to_remove.append(target.id)
 
+        # A conjunct that heads a clause of its own (", and delays are unlikely": the grammar marks its subject
+        # `kernel`) is a second predication, not a member of an AND group with the first clause's predicate: drop
+        # the conj link so it stays a separate root and keeps its own subject and predicate.
+        # A grouping node (one with `orig` members, e.g. the grammar's "sunny clear" over "clear and sunny") is the
+        # coordination itself, not a separate clause, and keeps its link.
+        def _is_grouping(node_id):
+            return any(d['label'].named_entity == 'orig' for _, _, d in G.out_edges(node_id, data=True))
+
+        clause_conjuncts = [
+            edge[:-1] for edge in (G.edges(keys=True, data=True) if G.is_multigraph() else G.edges(data=True))
+            if edge[-1]['label'].named_entity == 'conj'
+            and isinstance(G.nodes[edge[1]].get('data'), Singleton)
+            and 'kernel' in dict(G.nodes[edge[1]]['data'].properties)
+            and not _is_grouping(edge[1])
+        ]
+        G.remove_edges_from(clause_conjuncts)
+
         merge_edges = [edge for edge in G.edges(data=True) if edge[2]['label'].named_entity in ['orig', 'compound', 'conj', 'appos']]
         for idx, edge in enumerate(merge_edges):
             if edge[0] not in G or edge[1] not in G:
