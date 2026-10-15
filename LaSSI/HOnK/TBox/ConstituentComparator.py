@@ -6,7 +6,7 @@ from LaSSI.structures.extended_fol.Formulae import FVariable, FNot, FBinaryPredi
 from LaSSI.HOnK.TBox.ComparatorUtils import isImplication, transformCaseWhenOneArgIsNegated, isExistential
 from LaSSI.HOnK.TBox.ParaphraseManager import _paraphrase_concept_of, _paraphrase_match
 from LaSSI.HOnK.TBox.SpatialReasoner import _canonicalize_geo_fvar, _canonicalize_proper_noun_modifier, _strip_geo_generic_suffix, _has_near_place, _space_mismatch_contradiction, _space_city_mismatch_contradiction, _GEO_TYPES
-from LaSSI.HOnK.TBox.LifecycleManager import _lifecycle_partition_verdict
+from LaSSI.HOnK.TBox.LifecycleManager import _lifecycle_partition_verdict, _lifecycle_complementary
 from LaSSI.utils.datetime_canon import canonicalize_datetime_string as _canonicalize_datetime_string
 
 
@@ -443,6 +443,10 @@ def compare_variable(d, lhs, rhs, lhs_parent_concept=None, rhs_parent_concept=No
     elif _paraphrase_match(lhs, rhs, lhs_parent_concept=lhs_parent_concept,
                            rhs_parent_concept=rhs_parent_concept):
         val = CasusHappening.EQUIVALENT
+    elif isinstance(lhs, FNot) and isinstance(rhs, FNot):
+        # Double negation: "not A" and "not A'" are equivalent when A and A' are; no other relation carries over.
+        val = (CasusHappening.EQUIVALENT if compare_variable(d, lhs.arg, rhs.arg) == CasusHappening.EQUIVALENT
+               else CasusHappening.INDIFFERENT)
     elif isinstance(lhs, FNot):
         val = transformCaseWhenOneArgIsNegated(compare_variable(d, lhs.arg, rhs))
     elif isinstance(rhs, FNot):
@@ -596,6 +600,14 @@ def compare_variable(d, lhs, rhs, lhs_parent_concept=None, rhs_parent_concept=No
     d[cp] = val
     return d[cp]
 
+def _negated_relation(val, a, b):
+    """Relation between "not a" and b, given `val`, the relation between a and b. Two states of a two-state status
+    dimension are complementary, so "not a" is b; otherwise see `transformCaseWhenOneArgIsNegated`."""
+    if val == CasusHappening.EXCLUSIVES and _lifecycle_complementary(a, b):
+        return CasusHappening.EQUIVALENT
+    return transformCaseWhenOneArgIsNegated(val)
+
+
 def test_pairwise_sentence_similarity(d, x, y, store=True, shift=True):
     val = CasusHappening.NONE
     if y is None and x is None:
@@ -613,9 +625,9 @@ def test_pairwise_sentence_similarity(d, x, y, store=True, shift=True):
     elif (x == FNot(y)) or (y == FNot(x)):
         val = CasusHappening.EXCLUSIVES
     elif isinstance(x, FNot):
-        val = transformCaseWhenOneArgIsNegated(test_pairwise_sentence_similarity(d, x.arg, y, False, False))
+        val = _negated_relation(test_pairwise_sentence_similarity(d, x.arg, y, False, False), x.arg, y)
     elif isinstance(y, FNot):
-        val = transformCaseWhenOneArgIsNegated(test_pairwise_sentence_similarity(d, x, y.arg, False, False))
+        val = _negated_relation(test_pairwise_sentence_similarity(d, x, y.arg, False, False), x, y.arg)
     else:
         if (x.meta != y.meta):
             val = CasusHappening.INDIFFERENT
