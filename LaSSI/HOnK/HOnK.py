@@ -1143,7 +1143,15 @@ class HOnK(RDFGraph):
             neqTo_dst = self._neqTo_adj.get(dst, set())
             # Direct (1-hop) neqTo edge between the heads is decisive: an
             # explicit ontology antonym overrides any sense-collapsed synonymy.
+            # Unless the ontology also links the same two heads by a direct eq
+            # edge: it then asserts both that they are the same and that they
+            # are distinct (246 pairs in HOnK v1.5.0, e.g. be/exist and
+            # occur/happen, both from ConceptNet Antonym). Neither verdict is
+            # derived from such a pair, so the contradiction stays isolated in
+            # the knowledge base.
             if dst in neqTo_src or src in neqTo_dst:
+                if dst in self._eq_adj.get(src, ()) or src in self._eq_adj.get(dst, ()):
+                    return CasusHappening.INDIFFERENT
                 return CasusHappening.EXCLUSIVES
             # Direct synonymy (synsets share a member) outranks the broader
             # "synonym-of-mine matches antonym-of-theirs" path below — WordNet
