@@ -310,7 +310,8 @@ class TabularCWASemantics:
         The truth tables emitted by `_mutual_truth` map onto BDD operators as:
           Indifferent             -> TRUE  (no constraint)
           Implying(i, j)          -> ~i | j      (i => j)
-          ConflictingImplication  -> i XOR j     (i and j must disagree)
+          ConflictingImplication  -> i XOR j     (complementaries: exactly one holds)
+                                  -> ~(i & j)    (contraries: not both)
           Equivalent(i, j)        -> ~(i XOR j)  (i <=> j)
         """
         from LaSSI.structures.extended_fol.Enums import PairwiseCases
@@ -332,7 +333,11 @@ class TabularCWASemantics:
                 if test == PairwiseCases.Implying:
                     pair_c = self._bdd.apply('or', self._bdd.apply('not', bi), bj)
                 elif test == PairwiseCases.ConflictingImplication:
-                    pair_c = self._bdd.apply('xor', bi, bj)
+                    # Complementaries: exactly one holds. Contraries: not both (both may be false).
+                    if self._is_complementary_pair(i, j):
+                        pair_c = self._bdd.apply('xor', bi, bj)
+                    else:
+                        pair_c = self._bdd.apply('not', self._bdd.apply('and', bi, bj))
                 elif test == PairwiseCases.Equivalent:
                     pair_c = self._bdd.apply('not', self._bdd.apply('xor', bi, bj))
                 else:
@@ -469,7 +474,7 @@ class TabularCWASemantics:
             # cores — if they refer to the same event, NOT(A) vs B is exclusive.
             if self._predicates_share_core(x.arg, y):
                 return PairwiseCases.ConflictingImplication
-            val = transformCaseWhenOneArgIsNegated(val)
+            val = self._negated_relation(val, x.arg, y)
             return ExpandConstituents.rectify_implication(val)
         elif isinstance(y, FNot):
             j_new = self.negation_resolution.get(j, j)
@@ -482,10 +487,36 @@ class TabularCWASemantics:
                 return PairwiseCases.ConflictingImplication
             if self._predicates_share_core(x, y.arg):
                 return PairwiseCases.ConflictingImplication
-            val = transformCaseWhenOneArgIsNegated(val)
+            val = self._negated_relation(val, x, y.arg)
             return ExpandConstituents.rectify_implication(val)
         else:
             return self.ec.determine(i, j)
+
+    @staticmethod
+    def _negated_relation(val, a, b):
+        """Relation between "not a" and b given `val`, the relation between a and b: complementary two-state status
+        values make "not a" equivalent to b; otherwise `transformCaseWhenOneArgIsNegated` (contraries say nothing)."""
+        from LaSSI.HOnK.HOnK import CasusHappening
+        from LaSSI.HOnK.TBox.LifecycleManager import _lifecycle_complementary
+        if val == CasusHappening.EXCLUSIVES and _lifecycle_complementary(a, b):
+            return CasusHappening.EQUIVALENT
+        return transformCaseWhenOneArgIsNegated(val)
+
+    def _is_complementary_pair(self, i, j) -> bool:
+        """Whether a ConflictingImplication between atoms i and j is between complementaries (exactly one holds): a
+        literal negation pair, or two states of a two-state status dimension. Other exclusions (two places, two
+        antonyms, states of a larger dimension) are contraries: both can be false."""
+        from LaSSI.HOnK.TBox.LifecycleManager import _lifecycle_complementary
+        x = self.minimal_constituents.fromId(i)
+        y = self.minimal_constituents.fromId(j)
+        if x == FNot(y) or y == FNot(x):
+            return True
+        xa = x.arg if isinstance(x, FNot) else x
+        ya = y.arg if isinstance(y, FNot) else y
+        if isinstance(x, FNot) != isinstance(y, FNot):
+            # "not A" excluding B: A and B are the same state, or A implies B.
+            return True
+        return bool(_lifecycle_complementary(xa, ya))
 
     def explained_mutual_truth(self, i: int, j: int) -> MutualTruthExplain:
         test = self.determine(i, j)  # self.ec.determine(i, j) #self.get_mutual_truth(i, j)

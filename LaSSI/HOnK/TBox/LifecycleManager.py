@@ -152,9 +152,22 @@ def _collect_status_indicators(formula, negated: bool = False) -> set:
 
 def _lifecycle_partition_verdict(lhs, rhs):
     """Compare lhs and rhs through the lifecycle-states taxonomy."""
+    return _lifecycle_partition_analysis(lhs, rhs)[0]
+
+
+def _lifecycle_complementary(lhs, rhs) -> bool:
+    """True when lhs and rhs contradict only in dimensions with exactly two (non-descriptive) partitions, e.g.
+    "suspect identified" / "no suspect identified": the two states are then complementary, so exactly one holds
+    and "not A" implies the other. In a dimension with three or more states they are merely contrary."""
+    verdict, dims, sizes = _lifecycle_partition_analysis(lhs, rhs)
+    return verdict == 'contradiction' and bool(dims) and all(sizes.get(d) == 2 for d in dims)
+
+
+def _lifecycle_partition_analysis(lhs, rhs):
+    """Returns (verdict, contradicting dimensions, {dimension: number of non-descriptive partitions})."""
     phrases = _get_lifecycle_phrases()
     if not phrases:
-        return None
+        return None, set(), {}
 
     _dim_partitions: dict = {}
     for dim_parts in phrases.values():
@@ -191,10 +204,11 @@ def _lifecycle_partition_verdict(lhs, rhs):
                         _add(dim_part, assertive)
         return out
 
+    sizes = {dim: len(parts) for dim, parts in _dim_partitions.items()}
     lhs_marks = _phrase_marks(lhs)
     rhs_marks = _phrase_marks(rhs)
     if not lhs_marks or not rhs_marks:
-        return None
+        return None, set(), sizes
 
     def _by_dim(marks):
         out = {}
@@ -205,7 +219,8 @@ def _lifecycle_partition_verdict(lhs, rhs):
     lhs_dims = _by_dim(lhs_marks)
     rhs_dims = _by_dim(rhs_marks)
     asymmetric = False
-    for dim in set(lhs_dims) | set(rhs_dims):
+    contradicting = set()
+    for dim in sorted(set(lhs_dims) | set(rhs_dims)):
         lhs_parts = lhs_dims.get(dim, set())
         rhs_parts = rhs_dims.get(dim, set())
         if not lhs_parts or not rhs_parts:
@@ -214,10 +229,12 @@ def _lifecycle_partition_verdict(lhs, rhs):
         rhs_assertive = {p for p in rhs_parts if p != _DESCRIPTIVE_PARTITION}
         if lhs_assertive and rhs_assertive:
             if not (lhs_assertive & rhs_assertive):
-                return 'contradiction'
+                contradicting.add(dim)
         elif lhs_assertive or rhs_assertive:
             asymmetric = True
-    return 'asymmetric' if asymmetric else None
+    if contradicting:
+        return 'contradiction', contradicting, sizes
+    return ('asymmetric' if asymmetric else None), set(), sizes
 
 def _lifecycle_partition_contradiction(lhs, rhs) -> bool:
     """Back-compat wrapper: True only for genuine partition contradictions."""

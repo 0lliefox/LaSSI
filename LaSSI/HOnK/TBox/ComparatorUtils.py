@@ -7,13 +7,17 @@ def isImplication(x):
 d_transformCaseWhenOneArgIsNegated = None
 
 def transformCaseWhenOneArgIsNegated(orig: CasusHappening):
-    """Negation of a more-valued logic (where we have more than just satisfiability or not)"""
+    """Negation of a more-valued logic (where we have more than just satisfiability or not): the relation between
+    "not A" and B, given the relation between A and B. Equivalent A and B make "not A" exclude B. Exclusive A and B
+    (contraries: two places, two antonyms) say nothing about B when A is false ("not at Haymarket" does not put the
+    event at Monument), so the result is indifferent; the complementary cases (literal negation, a two-state status
+    dimension) are resolved by the callers that can see them."""
     global d_transformCaseWhenOneArgIsNegated
     if d_transformCaseWhenOneArgIsNegated is None:
         d_transformCaseWhenOneArgIsNegated = {CasusHappening.NONE: CasusHappening.NONE,
                                               CasusHappening.INDIFFERENT: CasusHappening.INDIFFERENT,
                                               CasusHappening.EQUIVALENT: CasusHappening.EXCLUSIVES,
-                                              CasusHappening.EXCLUSIVES: CasusHappening.EQUIVALENT,
+                                              CasusHappening.EXCLUSIVES: CasusHappening.INDIFFERENT,
                                               CasusHappening.GENERAL_IMPLICATION: CasusHappening.INDIFFERENT,
                                               CasusHappening.LOSE_SPEC_IMPLICATION: CasusHappening.INDIFFERENT,
                                               CasusHappening.INSTANTIATION_IMPLICATION: CasusHappening.INDIFFERENT,
