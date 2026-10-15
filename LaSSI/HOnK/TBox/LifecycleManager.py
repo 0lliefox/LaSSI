@@ -21,6 +21,12 @@ def _load_lifecycle_ttl() -> dict:
         return {}
     store = pyoxigraph.Store()
     store.load(path=_LIFECYCLE_TTL_PATH, format=pyoxigraph.RdfFormat.TURTLE)
+    # Curated-knowledge arm (LASSI_SYNONYMY=curated): the approved entries in the
+    # *.curated.ttl overlay are added to the same store; the base file is unchanged.
+    if os.environ.get("LASSI_SYNONYMY", "capped") == "curated":
+        _overlay = _LIFECYCLE_TTL_PATH[:-len(".ttl")] + ".curated.ttl"
+        if os.path.exists(_overlay):
+            store.load(path=_overlay, format=pyoxigraph.RdfFormat.TURTLE)
 
     rdf_type   = pyoxigraph.NamedNode("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
     rdfs_label = pyoxigraph.NamedNode("http://www.w3.org/2000/01/rdf-schema#label")

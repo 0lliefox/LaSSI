@@ -1,0 +1,433 @@
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix para: <https://ofox.co.uk/paraphrase#> .
+
+# ---------------------------------------------------------------------------
+# Paraphrase.curated.ttl — curated-knowledge arm of LaSSI v4.4 (loaded only
+# when LASSI_SYNONYMY=curated, on top of Paraphrase.ttl).  Entries drafted
+# 15 Oct 2026 from the sources' official vocabularies and general knowledge,
+# audited, and approved by Oliver; see
+# Civic-Verification/02_design/curated_entries_draft.md (IDs in brackets).
+# ---------------------------------------------------------------------------
+
+# [P1]
+para:AntiSocialBehaviour
+    a para:ParaphraseConcept ;
+    rdfs:label "anti_social_behaviour" ;
+    rdfs:comment "e.g. 'Anti-social behaviour was reported near the station.' vs 'Antisocial behaviour (ASB) was reported near the station.'  Source: Police.uk crime category 'Anti-social behaviour' (data.police.uk/api/crime-categories); spelling variants are general knowledge." .
+
+para:phrase_anti-social_behaviour
+    a para:ParaphrasePhrase ;
+    rdfs:label "anti-social behaviour" ;
+    para:memberOf para:AntiSocialBehaviour ;
+    para:form "name" .
+
+para:phrase_antisocial_behaviour
+    a para:ParaphrasePhrase ;
+    rdfs:label "antisocial behaviour" ;
+    para:memberOf para:AntiSocialBehaviour ;
+    para:form "name" .
+
+para:phrase_anti-social_behavior
+    a para:ParaphrasePhrase ;
+    rdfs:label "anti-social behavior" ;
+    para:memberOf para:AntiSocialBehaviour ;
+    para:form "name" .
+
+para:phrase_antisocial_behavior
+    a para:ParaphrasePhrase ;
+    rdfs:label "antisocial behavior" ;
+    para:memberOf para:AntiSocialBehaviour ;
+    para:form "name" .
+
+para:phrase_asb
+    a para:ParaphrasePhrase ;
+    rdfs:label "asb" ;
+    para:memberOf para:AntiSocialBehaviour ;
+    para:form "name" .
+
+# [P2]
+para:WeatherThunder
+    a para:ParaphraseConcept ;
+    rdfs:label "weather_thunder" ;
+    rdfs:comment "e.g. 'Thunder is forecast for Newcastle this afternoon.' vs 'Thunderstorms are forecast for Newcastle this afternoon.'  Source: Met Office DataHub weather code 30 'Thunder' (datahub.metoffice.gov.uk/support/faqs); 'thunderstorm' as the everyday name is general knowledge." .
+
+para:phrase_thunder
+    a para:ParaphrasePhrase ;
+    rdfs:label "thunder" ;
+    para:memberOf para:WeatherThunder ;
+    para:form "name" .
+
+para:phrase_thunderstorm
+    a para:ParaphrasePhrase ;
+    rdfs:label "thunderstorm" ;
+    para:memberOf para:WeatherThunder ;
+    para:form "name" .
+
+para:phrase_thunderstorms
+    a para:ParaphrasePhrase ;
+    rdfs:label "thunderstorms" ;
+    para:memberOf para:WeatherThunder ;
+    para:form "name" .
+
+# [P3]
+para:WeatherSnowNoun
+    a para:ParaphraseConcept ;
+    rdfs:label "weather_snow_noun" ;
+    rdfs:comment "e.g. 'Light snow is forecast for Newcastle overnight.' vs 'Light snowfall is forecast for Newcastle overnight.'  Mirrors WeatherPrecipitationNoun (rain/rainfall).  Source: Met Office DataHub weather codes 22-27 (snow); 'snowfall' is general knowledge." .
+
+para:phrase_snow
+    a para:ParaphrasePhrase ;
+    rdfs:label "snow" ;
+    para:memberOf para:WeatherSnowNoun ;
+    para:form "name" .
+
+para:phrase_snowfall
+    a para:ParaphrasePhrase ;
+    rdfs:label "snowfall" ;
+    para:memberOf para:WeatherSnowNoun ;
+    para:form "name" .
+
+# [P4]
+para:WeatherRainShower
+    a para:ParaphraseConcept ;
+    rdfs:label "weather_rain_shower" ;
+    rdfs:comment "e.g. 'Showers are expected in Newcastle this afternoon.' vs 'Rain showers are expected in Newcastle this afternoon.'  Source: Met Office DataHub weather codes 9/10 and 13/14 ('Light/Heavy rain shower'); bare 'shower(s)' meaning rain shower is general UK forecast usage." .
+
+para:phrase_rain_shower
+    a para:ParaphrasePhrase ;
+    rdfs:label "rain shower" ;
+    para:memberOf para:WeatherRainShower ;
+    para:form "name" .
+
+para:phrase_rain_showers
+    a para:ParaphrasePhrase ;
+    rdfs:label "rain showers" ;
+    para:memberOf para:WeatherRainShower ;
+    para:form "name" .
+
+para:phrase_shower
+    a para:ParaphrasePhrase ;
+    rdfs:label "shower" ;
+    para:memberOf para:WeatherRainShower ;
+    para:form "name" .
+
+para:phrase_showers
+    a para:ParaphrasePhrase ;
+    rdfs:label "showers" ;
+    para:memberOf para:WeatherRainShower ;
+    para:form "name" .
+
+# [P5]
+para:WeatherClearSky
+    a para:ParaphraseConcept ;
+    rdfs:label "weather_clear_sky" ;
+    rdfs:comment "e.g. 'Newcastle is forecast to have clear skies tonight.' vs 'Newcastle is forecast to have a clear sky tonight.'  Source: Met Office DataHub weather code 0 'Clear night' (datahub.metoffice.gov.uk/support/faqs); wording variants are general knowledge." .
+
+para:phrase_clear_sky
+    a para:ParaphrasePhrase ;
+    rdfs:label "clear sky" ;
+    para:memberOf para:WeatherClearSky ;
+    para:form "name" .
+
+para:phrase_clear_skies
+    a para:ParaphrasePhrase ;
+    rdfs:label "clear skies" ;
+    para:memberOf para:WeatherClearSky ;
+    para:form "name" .
+
+para:phrase_cloudless
+    a para:ParaphrasePhrase ;
+    rdfs:label "cloudless" ;
+    para:memberOf para:WeatherClearSky ;
+    para:form "name" .
+
+# [P6]
+para:TrafficManagementContraflow
+    a para:ParaphraseConcept ;
+    rdfs:label "traffic_management_contraflow" ;
+    rdfs:comment "e.g. 'A contraflow is in place on Jesmond Road.' vs 'A contra-flow is in place on Jesmond Road.'  Source: Street Manager TrafficManagementType enum value 'contra_flow' (Street Manager Work API v7.12 swagger); spelling variants are general knowledge." .
+
+para:phrase_contraflow
+    a para:ParaphrasePhrase ;
+    rdfs:label "contraflow" ;
+    para:memberOf para:TrafficManagementContraflow ;
+    para:form "name" .
+
+para:phrase_contra_flow
+    a para:ParaphrasePhrase ;
+    rdfs:label "contra flow" ;
+    para:memberOf para:TrafficManagementContraflow ;
+    para:form "name" .
+
+para:phrase_contra-flow
+    a para:ParaphrasePhrase ;
+    rdfs:label "contra-flow" ;
+    para:memberOf para:TrafficManagementContraflow ;
+    para:form "name" .
+
+# [P7]
+para:TrafficManagementStopGo
+    a para:ParaphraseConcept ;
+    rdfs:label "traffic_management_stop_go" ;
+    rdfs:comment "e.g. 'Traffic is controlled by stop/go boards.' vs 'Traffic is controlled by stop-go boards.'  Source: Street Manager TrafficManagementType enum value 'stop_go_boards' (Street Manager Work API v7.12 swagger); spelling variants are general knowledge." .
+
+para:phrase_stop_slash_go_boards
+    a para:ParaphrasePhrase ;
+    rdfs:label "stop/go boards" ;
+    para:memberOf para:TrafficManagementStopGo ;
+    para:form "name" .
+
+para:phrase_stop_go_boards
+    a para:ParaphrasePhrase ;
+    rdfs:label "stop go boards" ;
+    para:memberOf para:TrafficManagementStopGo ;
+    para:form "name" .
+
+para:phrase_stop-go_boards
+    a para:ParaphrasePhrase ;
+    rdfs:label "stop-go boards" ;
+    para:memberOf para:TrafficManagementStopGo ;
+    para:form "name" .
+
+para:phrase_stop_and_go_boards
+    a para:ParaphrasePhrase ;
+    rdfs:label "stop and go boards" ;
+    para:memberOf para:TrafficManagementStopGo ;
+    para:form "name" .
+
+# [P8]
+para:TrafficManagementTwoWaySignals
+    a para:ParaphraseConcept ;
+    rdfs:label "traffic_management_two_way_signals" ;
+    rdfs:comment "e.g. 'Two-way signals are in place on Westgate Road.' vs 'Two-way traffic lights are in place on Westgate Road.'  Source: Street Manager TrafficManagementType enum value 'two_way_signals' (Street Manager Work API v7.12 swagger); 'signals' = temporary traffic lights is general UK roadworks usage." .
+
+para:phrase_two-way_signals
+    a para:ParaphrasePhrase ;
+    rdfs:label "two-way signals" ;
+    para:memberOf para:TrafficManagementTwoWaySignals ;
+    para:form "name" .
+
+para:phrase_two_way_signals
+    a para:ParaphrasePhrase ;
+    rdfs:label "two way signals" ;
+    para:memberOf para:TrafficManagementTwoWaySignals ;
+    para:form "name" .
+
+para:phrase_2-way_signals
+    a para:ParaphrasePhrase ;
+    rdfs:label "2-way signals" ;
+    para:memberOf para:TrafficManagementTwoWaySignals ;
+    para:form "name" .
+
+para:phrase_two-way_traffic_lights
+    a para:ParaphrasePhrase ;
+    rdfs:label "two-way traffic lights" ;
+    para:memberOf para:TrafficManagementTwoWaySignals ;
+    para:form "name" .
+
+para:phrase_two-way_lights
+    a para:ParaphrasePhrase ;
+    rdfs:label "two-way lights" ;
+    para:memberOf para:TrafficManagementTwoWaySignals ;
+    para:form "name" .
+
+# [P9]
+para:TrafficManagementMultiWaySignals
+    a para:ParaphraseConcept ;
+    rdfs:label "traffic_management_multi_way_signals" ;
+    rdfs:comment "e.g. 'Multi-way signals are in place at the junction.' vs 'Multi-way traffic lights are in place at the junction.'  Source: Street Manager TrafficManagementType enum value 'multi_way_signals' (Street Manager Work API v7.12 swagger); wording variants are general knowledge." .
+
+para:phrase_multi-way_signals
+    a para:ParaphrasePhrase ;
+    rdfs:label "multi-way signals" ;
+    para:memberOf para:TrafficManagementMultiWaySignals ;
+    para:form "name" .
+
+para:phrase_multi_way_signals
+    a para:ParaphrasePhrase ;
+    rdfs:label "multi way signals" ;
+    para:memberOf para:TrafficManagementMultiWaySignals ;
+    para:form "name" .
+
+para:phrase_multiway_signals
+    a para:ParaphrasePhrase ;
+    rdfs:label "multiway signals" ;
+    para:memberOf para:TrafficManagementMultiWaySignals ;
+    para:form "name" .
+
+para:phrase_multi-way_traffic_lights
+    a para:ParaphrasePhrase ;
+    rdfs:label "multi-way traffic lights" ;
+    para:memberOf para:TrafficManagementMultiWaySignals ;
+    para:form "name" .
+
+# [P10]
+para:TrafficManagementRoadClosure
+    a para:ParaphraseConcept ;
+    rdfs:label "traffic_management_road_closure" ;
+    rdfs:comment "e.g. 'A road closure is in place on Blackett Street.' vs 'A full road closure is in place on Blackett Street.'  Source: Street Manager TrafficManagementType enum value 'road_closure' (Street Manager Work API v7.12 swagger); 'full road closure' as the contrast with a lane closure is general UK roadworks usage." .
+
+para:phrase_road_closure
+    a para:ParaphrasePhrase ;
+    rdfs:label "road closure" ;
+    para:memberOf para:TrafficManagementRoadClosure ;
+    para:form "name" .
+
+para:phrase_full_road_closure
+    a para:ParaphrasePhrase ;
+    rdfs:label "full road closure" ;
+    para:memberOf para:TrafficManagementRoadClosure ;
+    para:form "name" .
+
+
+# [P11]
+para:EmergencyWorks
+    a para:ParaphraseConcept ;
+    rdfs:label "emergency_works" ;
+    rdfs:comment "e.g. 'Emergency works are taking place on Shields Road.' vs 'Immediate emergency works are taking place on Shields Road.'  Source: Street Manager WorkCategory enum value 'immediate_emergency' (Street Manager Work API v7.12 swagger); 'emergency works' as the everyday name is general knowledge." .
+
+para:phrase_emergency_works
+    a para:ParaphrasePhrase ;
+    rdfs:label "emergency works" ;
+    para:memberOf para:EmergencyWorks ;
+    para:form "name" .
+
+para:phrase_immediate_emergency
+    a para:ParaphrasePhrase ;
+    rdfs:label "immediate emergency" ;
+    para:memberOf para:EmergencyWorks ;
+    para:form "name" .
+
+para:phrase_immediate_emergency_works
+    a para:ParaphrasePhrase ;
+    rdfs:label "immediate emergency works" ;
+    para:memberOf para:EmergencyWorks ;
+    para:form "name" .
+
+para:phrase_emergency_roadworks
+    a para:ParaphrasePhrase ;
+    rdfs:label "emergency roadworks" ;
+    para:memberOf para:EmergencyWorks ;
+    para:form "name" .
+
+# [P12]
+para:UrgentWorks
+    a para:ParaphraseConcept ;
+    rdfs:label "urgent_works" ;
+    rdfs:comment "e.g. 'Urgent works are taking place on Shields Road.' vs 'Immediate urgent works are taking place on Shields Road.'  Source: Street Manager WorkCategory enum value 'immediate_urgent' (Street Manager Work API v7.12 swagger)." .
+
+para:phrase_urgent_works
+    a para:ParaphrasePhrase ;
+    rdfs:label "urgent works" ;
+    para:memberOf para:UrgentWorks ;
+    para:form "name" .
+
+para:phrase_immediate_urgent
+    a para:ParaphrasePhrase ;
+    rdfs:label "immediate urgent" ;
+    para:memberOf para:UrgentWorks ;
+    para:form "name" .
+
+para:phrase_immediate_urgent_works
+    a para:ParaphrasePhrase ;
+    rdfs:label "immediate urgent works" ;
+    para:memberOf para:UrgentWorks ;
+    para:form "name" .
+
+# [P13]
+para:NormalService
+    a para:ParaphraseConcept ;
+    rdfs:label "normal_service" ;
+    rdfs:comment "e.g. 'Metro services are running as normal.' vs 'There is a normal service on the Metro.' vs 'Good service on the Metro.'  Source: general knowledge of UK transport status notices (no official Nexus status vocabulary consulted)." .
+
+para:phrase_normal_service
+    a para:ParaphrasePhrase ;
+    rdfs:label "normal service" ;
+    para:memberOf para:NormalService ;
+    para:form "name" .
+
+para:phrase_good_service
+    a para:ParaphrasePhrase ;
+    rdfs:label "good service" ;
+    para:memberOf para:NormalService ;
+    para:form "name" .
+
+para:phrase_running_as_normal
+    a para:ParaphrasePhrase ;
+    rdfs:label "running as normal" ;
+    para:memberOf para:NormalService ;
+    para:form "name" .
+
+para:phrase_running_normally
+    a para:ParaphrasePhrase ;
+    rdfs:label "running normally" ;
+    para:memberOf para:NormalService ;
+    para:form "name" .
+
+para:phrase_operating_normally_service
+    a para:ParaphrasePhrase ;
+    rdfs:label "operating normally" ;
+    para:memberOf para:NormalService ;
+    para:form "name" .
+
+# [P14]
+para:ReplacementBus
+    a para:ParaphraseConcept ;
+    rdfs:label "replacement_bus" ;
+    rdfs:comment "e.g. 'Replacement buses are running between Pelaw and South Shields.' vs 'A rail replacement bus service is running between Pelaw and South Shields.'  Source: general knowledge of UK transport notices (no official Nexus list consulted)." .
+
+para:phrase_replacement_bus
+    a para:ParaphrasePhrase ;
+    rdfs:label "replacement bus" ;
+    para:memberOf para:ReplacementBus ;
+    para:form "name" .
+
+para:phrase_replacement_buses
+    a para:ParaphrasePhrase ;
+    rdfs:label "replacement buses" ;
+    para:memberOf para:ReplacementBus ;
+    para:form "name" .
+
+para:phrase_replacement_bus_service
+    a para:ParaphrasePhrase ;
+    rdfs:label "replacement bus service" ;
+    para:memberOf para:ReplacementBus ;
+    para:form "name" .
+
+para:phrase_rail_replacement_bus
+    a para:ParaphrasePhrase ;
+    rdfs:label "rail replacement bus" ;
+    para:memberOf para:ReplacementBus ;
+    para:form "name" .
+
+para:phrase_bus_replacement
+    a para:ParaphrasePhrase ;
+    rdfs:label "bus replacement" ;
+    para:memberOf para:ReplacementBus ;
+    para:form "name" .
+
+# [P15]
+para:TyneAndWearMetro
+    a para:ParaphraseConcept ;
+    rdfs:label "tyne_and_wear_metro" ;
+    rdfs:comment "e.g. 'Tyne and Wear Metro services are delayed.' vs 'Metro services are delayed.'  Source: general knowledge (Nexus operates the Tyne and Wear Metro, referred to locally as 'the Metro')." .
+
+para:phrase_metro
+    a para:ParaphrasePhrase ;
+    rdfs:label "metro" ;
+    para:memberOf para:TyneAndWearMetro ;
+    para:form "name" .
+
+para:phrase_tyne_and_wear_metro
+    a para:ParaphrasePhrase ;
+    rdfs:label "tyne and wear metro" ;
+    para:memberOf para:TyneAndWearMetro ;
+    para:form "name" .
+
+para:phrase_the_metro
+    a para:ParaphrasePhrase ;
+    rdfs:label "the metro" ;
+    para:memberOf para:TyneAndWearMetro ;
+    para:form "name" .

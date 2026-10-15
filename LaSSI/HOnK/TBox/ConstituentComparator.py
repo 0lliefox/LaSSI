@@ -118,6 +118,21 @@ def _is_change_of_state_relation(rel):
     return str(rel).lower() in {str(v).lower() for v in change_verbs}
 
 
+def _drop_classifier_only_specification(var):
+    """`var` with its specification removed when that specification is a lone event-classifier
+    head noun (raw_data/nouns/event_classifier_head_nouns.txt: offence, incident, ...)."""
+    spec = getattr(var, "specification", None)
+    if not isinstance(spec, str) or not spec.strip():
+        return var
+    nouns = {c.lower() for c in (HOnKSingleton.get().getEventClassifierHeadNouns() or set())}
+    if spec.strip().lower() not in nouns:
+        return var
+    import dataclasses
+    if not dataclasses.is_dataclass(var):
+        return var
+    return dataclasses.replace(var, specification=None)
+
+
 def _strip_event_classifier_suffix(name):
     """Drop trailing EventClassifierHeadNoun(s) ("offence", "incident", ...) from
     a surface phrase: "weapons possession offence" -> "weapons possession",
@@ -442,6 +457,11 @@ def compare_variable(d, lhs, rhs, lhs_parent_concept=None, rhs_parent_concept=No
         lhs = _canonicalize_proper_noun_modifier(lhs)
         rhs = _canonicalize_proper_noun_modifier(rhs)
         kb = HOnKSingleton.get()
+        if os.environ.get("LASSI_SYNONYMY", "capped") == "curated":
+            # Curated-knowledge arm (J1): a specification that is only an event-classifier
+            # head noun ("a shoplifting incident") adds nothing to what the entity is.
+            lhs = _drop_classifier_only_specification(lhs)
+            rhs = _drop_classifier_only_specification(rhs)
         lhs_type = lhs.type or ""
         rhs_type = rhs.type or ""
         if (lhs.name is not None and rhs.name is not None

@@ -924,6 +924,21 @@ class HOnK(RDFGraph):
         with open(path, "rb") as f:
             self._eq_adj = pickle.load(f)
         print(f"[HOnK]   synonymy: curated, one hop ({len(self._eq_adj)} terms) from {path}", flush=True)
+        # Curated isA edges (raw_data/curated_isa.tsv: subtype, supertype), stored in the
+        # adjacency's own layout, supertype -> subtypes, as HOnK's Parmenides edges are.
+        isa_path = os.path.join(os.path.dirname(__file__), "..", "..", "raw_data", "curated_isa.tsv")
+        if os.path.exists(isa_path):
+            added = 0
+            with open(isa_path, encoding="utf-8") as fh:
+                for line in fh:
+                    if not line.strip() or line.startswith("#"):
+                        continue
+                    sub, sup = line.rstrip("\n").split("\t")[:2]
+                    self._isA_supers.setdefault(sup, set()).add(sub)
+                    added += 1
+            if hasattr(self, "_trcl_cache"):
+                self._trcl_cache.clear()
+            print(f"[HOnK]   curated isA edges: {added} from {isa_path}", flush=True)
 
     def getSynonymy(self, k):
         """Return the set of all labels equivalent to *k* (including *k* itself).
