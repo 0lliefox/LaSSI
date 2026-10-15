@@ -15,6 +15,7 @@ from types import SimpleNamespace
 
 from LaSSI.ner.node_functions import create_existential_node, create_props_for_singleton, get_min_position
 from LaSSI.structures.kernels.transitivity import drops_object
+from LaSSI.structures.DependencyRoles import is_infinitive_marker
 from LaSSI.ner.string_functions import lemmatize_verb, check_semi_modal, lemmatize_sentence
 from LaSSI.structures.internal_graph.EntityRelationship import Relationship, Singleton, SetOfSingletons, Grouping
 from LaSSI.external_services.Services import Services
@@ -773,7 +774,7 @@ def get_prepositions(node):
     for key in node_props:
         if key in {"mark", "adv", "advmod", "IN", "TO", "case"}:
             value = node_props[key]
-            if isinstance(value, str):
+            if isinstance(value, str) and not is_infinitive_marker(node, key, value):
                 found_prepositions.append(value.lower().replace(_smart_apos, "'"))
         try:
             case_position = float(key)

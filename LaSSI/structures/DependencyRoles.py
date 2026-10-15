@@ -64,3 +64,10 @@ def space_case_marker_keys() -> frozenset:
 
 def verb_disqualifying_incoming_edges() -> frozenset:
     return get("verb_disqualifying_incoming_edges")
+
+
+def is_infinitive_marker(node, key, value) -> bool:
+    """True if `key: value` on `node` is the infinitive marker "to" of a verb ("to install a fire valve"), which marks a
+    non-finite clause and is not the preposition "to" ("go to the store")."""
+    return (key == "mark" and isinstance(value, str) and value.strip().lower() == "to"
+            and (getattr(node, "type", None) or "").lower() == "verb")

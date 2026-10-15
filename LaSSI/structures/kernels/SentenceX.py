@@ -1306,7 +1306,7 @@ def get_prepositions(node):
     for key in node_props:
         if key in DependencyRoles.preposition_marker_labels():
             value = node_props[key]
-            if isinstance(value, str):
+            if isinstance(value, str) and not DependencyRoles.is_infinitive_marker(node, key, value):
                 found_prepositions.append(value.lower().replace(_smart_apos, "'"))
         try:
             case_position = float(key)

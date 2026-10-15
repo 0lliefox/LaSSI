@@ -1114,6 +1114,20 @@
     },
     {
       "premise": {
+        "InfinitiveMarker": true
+      },
+      "classification": [
+        {
+          "type": "aim_objective"
+        }
+      ],
+      "__sentence_examples": [
+        "Roadworks are taking place on Church Road to install a fire valve",
+        "The road is closed to allow resurfacing"
+      ]
+    },
+    {
+      "premise": {
         "Preposition": [
           "for"
         ],
