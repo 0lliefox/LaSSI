@@ -331,8 +331,18 @@ def create_sentence(G, edges, nodes, negations, root_sentence_id, found_preposit
         if kernel.target is not None:
             kernel, kernel_nodes = analyse_kernel_node(kernel, kernel_nodes, "target")
 
+    # Adverbial clauses ("to renew a valve chamber cover", "before work ends on 29 April") become SENTENCE
+    # sub-kernels with their own arguments before the flat pass below, which would otherwise file the clause
+    # verb and its subject/object as unrelated properties of the head.
+    consumed_edges = set()
+    if kernel is not None:
+        kernel, properties, kernel_nodes, consumed_edges = add_adverbial_clauses(
+            G, edges, kernel, kernel_nodes, properties, negations, node_functions)
+
     # Create properties, rewrite relevant edges, check if we find a property that should be a kernel
     for edge in edges:
+        if (edge[0], edge[1], edge[2]) in consumed_edges:
+            continue
         edge_source = G.nodes[edge[0]]['data']
         edge_target = G.nodes[edge[1]]['data']
         edge_label = edge[3]['label']
@@ -615,6 +625,91 @@ def update_edge(G, edge, updated_edge):
     nx.set_edge_attributes(G, {
         (edge[0], edge[1], edge[2]): {'label': updated_edge, 'isNegated': edge[3]['isNegated']}})
     return G
+
+
+_CLAUSE_SUBJECT_LABELS = frozenset({'nsubj', 'nsubjpass', 'csubj'})
+_CLAUSE_OBJECT_LABELS = frozenset({'obj', 'dobj'})
+
+
+def adverbial_clause_kernel(G, clause_id, negations, node_functions, consumed_edges):
+    """SENTENCE sub-kernel for the adverbial clause headed by verb node `clause_id`: the verb as edge label, its
+    subject (or a fresh existential when it has none, as in an infinitival clause) as source, its object as
+    target, a nested adverbial clause as a nested SENTENCE, and every other dependent as a property keyed by its
+    node type, so logical rewriting can classify it (e.g. "on 29 April" as TIME). The clause's own out-edges are
+    added to `consumed_edges`."""
+    clause = G.nodes[clause_id]['data']
+    source, target = None, None
+    sub_properties = defaultdict(list)
+    for u, v, key, data in list(G.out_edges(clause_id, keys=True, data=True)):
+        label = data.get('label')
+        label_name = getattr(label, 'named_entity', None)
+        child = G.nodes[v].get('data')
+        if child is None:
+            continue
+        consumed_edges.add((u, v, key))
+        if label_name in _CLAUSE_SUBJECT_LABELS and source is None:
+            source = child
+        elif label_name in _CLAUSE_OBJECT_LABELS and target is None:
+            target = child
+        elif _is_adverbial_clause_edge(label_name, child):
+            sub_properties['SENTENCE'].append(
+                adverbial_clause_kernel(G, v, negations, node_functions, consumed_edges))
+        else:
+            child_key = node_functions.get_node_type(child)
+            if child not in sub_properties[child_key]:
+                sub_properties[child_key].append(child)
+    if source is None:
+        source = node_functions.create_existential_node(G)
+    return Singleton(
+        id=clause.id,
+        named_entity="",
+        type="SENTENCE",
+        min=clause.min,
+        max=clause.max,
+        confidence=1,
+        kernel=Relationship(
+            source=remove_acl_relcl_relationship(source),
+            target=remove_acl_relcl_relationship(target) if target is not None else None,
+            edgeLabel=clause,
+            isNegated=False
+        ),
+        properties=create_props_for_singleton(sub_properties),
+    )
+
+
+def _is_adverbial_clause_edge(label_name, clause):
+    """An `advcl` edge to a verb, or an `acl` edge to an infinitival verb ("Roadworks to renew a valve chamber
+    cover are taking place"), which states the purpose of the event just as the adverbial form ("Roadworks are
+    taking place to renew ...") does."""
+    if not (isinstance(clause, Singleton) and (clause.type or '').lower() == 'verb'):
+        return False
+    if label_name == 'advcl':
+        return True
+    return label_name == 'acl' and DependencyRoles.is_infinitive_marker(
+        clause, 'mark', dict(clause.properties).get('mark'))
+
+
+def add_adverbial_clauses(G, edges, kernel, kernel_nodes, properties, negations, node_functions):
+    """Attach every adverbial clause (see `_is_adverbial_clause_edge`) among `edges` to `kernel` as a SENTENCE
+    property built by `adverbial_clause_kernel`, registering its nodes as used. Returns the edges it consumed,
+    which the flat property pass must skip."""
+    consumed_edges = set()
+    for edge in edges:
+        if (edge[0], edge[1], edge[2]) in consumed_edges:
+            continue
+        label = edge[3].get('label')
+        clause = G.nodes[edge[1]].get('data')
+        if not _is_adverbial_clause_edge(getattr(label, 'named_entity', None), clause):
+            continue
+        consumed_edges.add((edge[0], edge[1], edge[2]))
+        clause_kernel = adverbial_clause_kernel(G, edge[1], negations, node_functions, consumed_edges)
+        for node in (clause_kernel.kernel.edgeLabel, clause_kernel.kernel.source, clause_kernel.kernel.target):
+            if node is not None and not is_node_in_kernel_nodes(node, kernel_nodes):
+                kernel_nodes = add_to_kernel_nodes(node, kernel_nodes)
+        kernel, properties, kernel_nodes = add_to_properties(
+            kernel, clause_kernel, 'edgeLabel', kernel_nodes, properties, negations, node_functions,
+            type_key='SENTENCE')
+    return kernel, properties, kernel_nodes, consumed_edges
 
 
 def remove_acl_relcl_relationship(node):
