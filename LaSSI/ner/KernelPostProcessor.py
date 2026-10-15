@@ -35,6 +35,23 @@ _STRUCTURAL_PROPERTY_KEYS = frozenset({'SENTENCE'})
 _GROUPING_PROPERTY_KEYS = frozenset(g.name for g in Grouping)
 
 
+def first_main_clause(sentences):
+    """The first SENTENCE value that is not a subordinate clause, i.e. carries no subordinator ("while", "before",
+    infinitival "to") on itself or on its verb; None if there is none. An empty copula ("There is a reduction ... while
+    we carry out repairs") is replaced by a sub-clause only when that clause is a main clause: an adverbial clause is
+    context of the copula's event, never its content."""
+    for sentence in sentences if isinstance(sentences, (list, tuple)) else [sentences]:
+        if not isinstance(sentence, Singleton):
+            continue
+        if dict(sentence.properties).get('mark'):
+            continue
+        edge = sentence.kernel.edgeLabel if sentence.kernel is not None else None
+        if isinstance(edge, Singleton) and dict(edge.properties).get('mark'):
+            continue
+        return sentence
+    return None
+
+
 class KernelPostProcessor:
     """Post-loop transformation pipeline for the final kernel.
 
@@ -1721,11 +1738,14 @@ class KernelPostProcessor:
 
             if (source_empty or target_empty) if is_be else (source_empty and target_empty):
                 node_props = dict(kernel.properties)
-                if len(node_props) > 0 and 'SENTENCE' in node_props:
+                if len(node_props) > 0 and first_main_clause(node_props.get('SENTENCE', [])) is not None:
                     for key in node_props:
                         if key == 'SENTENCE':
-                            new_kernel = node_props['SENTENCE'][0]
-                            new_kernel = self._check_if_empty_kernel(new_kernel, force)
+                            main_clause = first_main_clause(node_props['SENTENCE'])
+                            new_kernel = self._check_if_empty_kernel(main_clause, force)
+                            rest = [x for x in node_props['SENTENCE'] if x is not main_clause]
+                            if rest:
+                                properties_to_keep['SENTENCE'] = rest
 
                             if is_be and new_kernel is not None and new_kernel.kernel is not None:
                                 outer_nominal = kernel.kernel.source if not source_empty else kernel.kernel.target
