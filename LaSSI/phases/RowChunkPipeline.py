@@ -722,13 +722,15 @@ class RowChunkPipeline:
             if len(sub_indices) == 1:
                 single = intermediate_representations[sub_indices[0]]
                 # Single-clause rows skip the chunk-merge projections, but a
-                # DisruptionNoun-headed TOGETHERNESS still needs reclassifying to
-                # DISRUPTION so it matches the multi-chunk notices' shape (keeps
+                # disruption clause ("..., and delays are unlikely") and a
+                # DisruptionNoun-headed TOGETHERNESS still need projecting to
+                # DISRUPTION so they match the multi-chunk notices' shape (keeps
                 # the identity-refining key consistent across paraphrases).
                 if isinstance(single, Singleton):
                     new_props = defaultdict(list)
                     for k, v in sorted(dict(single.properties).items()):
                         new_props[k] = list(v) if isinstance(v, (list, tuple)) else v
+                    self._project_disruption_from_sentence(new_props)
                     self._reclassify_togetherness_disruption(new_props)
                     single = single.update_node_props(new_props)
                 merged.append(single)
@@ -962,7 +964,9 @@ class RowChunkPipeline:
           ``delay[(MODALITY:unlikely)]`` (modality from a modal-adjective
           target).
         * ``be(carriageway[extra:incursion], ?)`` — the source NP is/holds
-          a DisruptionNoun; emit that NP unchanged."""
+          a DisruptionNoun; emit that NP, with ``MODALITY`` when the predicate
+          is a modal adjective (``be(delays, unlikely)`` — "delays are
+          unlikely" — gives ``delays[(MODALITY:unlikely)]``, as Shape A does)."""
         from LaSSI.ner.node_functions import create_props_for_singleton
         from LaSSI.structures.internal_graph.EntityRelationship import Singleton
         if not isinstance(item, Singleton) or item.kernel is None:
@@ -987,6 +991,10 @@ class RowChunkPipeline:
         # Shape B: disruption noun heads the source NP (be(carriageway[incursion], ?)).
         head = self._node_disruption_head(source, disruption_nouns)
         if head is not None:
+            if isinstance(target, Singleton) and (self._name_candidates(target) & modals):
+                head_props = dict(head.properties)
+                head_props["MODALITY"] = list(head_props.get("MODALITY", []) or []) + [target]
+                head = head.update_node_props(head_props)
             return head
         return None
 
@@ -1005,16 +1013,28 @@ class RowChunkPipeline:
         if not disruption_nouns:
             return
         kept = []
+        carried = defaultdict(list)
         for item in sentence_items:
             projected = self._disruption_node(item, disruption_nouns, modals)
             if projected is not None:
                 new_props.setdefault("DISRUPTION", []).append(projected)
+                # The clause's own context ("delays are considered unlikely *before work ends on 27 April*") is
+                # context of the row's event too; keep it rather than dropping it with the clause wrapper.
+                for key, value in sorted(dict(item.properties).items()):
+                    values = value if isinstance(value, (list, tuple)) else [value]
+                    carried[key].extend(v for v in values if not isinstance(v, str))
             else:
                 kept.append(item)
         if kept:
             new_props["SENTENCE"] = kept
         else:
             new_props.pop("SENTENCE", None)
+        for key, values in carried.items():
+            if not values:
+                continue
+            existing = new_props.get(key)
+            existing = list(existing) if isinstance(existing, (list, tuple)) else ([existing] if existing is not None else [])
+            new_props[key] = existing + [v for v in values if v not in existing]
 
     def _project_lifecycle_from_sentence(self, new_props):
         """Lift lifecycle facts out of merged SENTENCE entries.
