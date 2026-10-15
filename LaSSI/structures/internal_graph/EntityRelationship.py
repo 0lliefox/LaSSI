@@ -613,6 +613,10 @@ class Singleton(NodeEntryPoint):  # Graph node representing just one entity
         if node is None:
             node = self
 
+        if isinstance(node, SetOfSingletons):
+            # a SENTENCE property can hold a coordination of clauses; it has no kernel of its own (issue 89)
+            return self.get_node_string(node)
+
         if node.kernel:
             edge_label = self.get_node_string(node.kernel.edgeLabel) if node.kernel.edgeLabel is not None else 'None'
             source = self.get_node_string(node.kernel.source) if node.kernel.source is not None else 'None'
@@ -623,7 +627,7 @@ class Singleton(NodeEntryPoint):  # Graph node representing just one entity
             if edge_label == 'be' and node.kernel.target is not None:
                 from LaSSI.external_services.Services import Services
                 p = Services.getInstance().getHOnK()
-                target_name = node.kernel.target.named_entity
+                target_name = getattr(node.kernel.target, 'named_entity', None)   # None for a coordinated target
                 is_verb_in_ontology = False
                 if target_name:
                     is_verb_in_ontology = (target_name in p.state_verbs or target_name in p.transitive_verbs or 
