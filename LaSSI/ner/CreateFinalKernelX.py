@@ -15,7 +15,7 @@ import networkx as nx
 import numpy
 
 from LaSSI.external_services.Services import Services
-from LaSSI.ner.KernelPostProcessor import KernelPostProcessor
+from LaSSI.ner.KernelPostProcessor import KernelPostProcessor, first_main_clause
 from LaSSI.ner.MergeSetOfSingletons import merge_properties
 from LaSSI.ner.node_functions import create_existential_node
 from LaSSI.ner.node_functions_X import create_props_for_singleton, NodeFunctions
@@ -978,11 +978,14 @@ class CreateFinalKernelX:
 
             if (source_empty or target_empty) if is_be else (source_empty and target_empty):
                 node_props = dict(kernel.properties)
-                if len(node_props) > 0 and 'SENTENCE' in node_props:
+                if len(node_props) > 0 and first_main_clause(node_props.get('SENTENCE', [])) is not None:
                     for key in node_props:
                         if key == 'SENTENCE':
-                            new_kernel = node_props['SENTENCE'][0]
-                            new_kernel = self.check_if_empty_kernel(new_kernel, force)
+                            main_clause = first_main_clause(node_props['SENTENCE'])
+                            new_kernel = self.check_if_empty_kernel(main_clause, force)
+                            rest = [x for x in node_props['SENTENCE'] if x is not main_clause]
+                            if rest:
+                                properties_to_keep['SENTENCE'] = rest
 
                             if is_be and new_kernel is not None and new_kernel.kernel is not None:
                                 outer_nominal = kernel.kernel.source if not source_empty else kernel.kernel.target
