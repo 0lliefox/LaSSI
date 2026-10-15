@@ -328,7 +328,16 @@ class LaSSI():
 
     def apply_graph_grammars(self, n):
         from PyDatagramDB import DatagramDB
-        d = DatagramDB(self.gsmDB,
+        from LaSSI.HOnK.HOnK import HOnKSingleton
+        from LaSSI.phases.DependencyNormaliser import normalise_gsm
+        # The grammar reads a normalised copy of the parser output (judgement passives and relatives, see
+        # DependencyNormaliser); the parser output itself stays cached as written.
+        normalised_gsm_db = os.path.join(self.catabolites, "gsmDB_normalised.txt")
+        with open(self.gsmDB, "r") as f:
+            gsm_text = f.read()
+        with open(normalised_gsm_db, "w") as f:
+            f.write(normalise_gsm(gsm_text, HOnKSingleton.get().getModalAdjectives()))
+        d = DatagramDB(normalised_gsm_db,
                        self.query_file,
                        self.catabolites_viz,
                        full_server_output=False,
