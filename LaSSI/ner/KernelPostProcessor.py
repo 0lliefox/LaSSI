@@ -930,6 +930,12 @@ class KernelPostProcessor:
             return kernel
         if not self._is_kernel_level_logical_context(kernel, kernel):
             return kernel
+        # Only a clause introduced by a subordinator ("while ...") is a context clause; without one
+        # ("Roadworks are taking place ...") the outer clause is the main clause whatever its verb's class.
+        edge = kernel.kernel.edgeLabel
+        if not (dict(kernel.properties).get('mark') or
+                (isinstance(edge, Singleton) and dict(edge.properties).get('mark'))):
+            return kernel
 
         sentence_list = list(sentence_values) if isinstance(sentence_values, (list, tuple)) else [sentence_values]
         main_clause = next(
