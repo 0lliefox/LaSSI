@@ -78,6 +78,7 @@ nested match   FBinaryPredicate ( "have", var(src), var(dst) , var(score), var(p
        where (call "nonEmptyMatch" with variable : "x") && (call "isOfType" with variable : "x" type : "LOC") || (call "isOfType" with variable : "x" type : "GPE")
        as   FUnaryPredicate ( "be" ,   var(dst)   , var(score), ( "addProperty" (var(props)) with key : "SPACE" value : var(src) ) )
        ;
+/* HOnK-aligned (15 Oct 2026): HOnK defines relatedTo as 'general semantic association' (Ch. 4 glossary), which licenses neither implication nor equivalence
 //
 
 // query 9: If the nome/adjective pair is related to a given concept, then this can be grouped as one single variable and represent the relatedness as a RelatedTo
@@ -86,12 +87,14 @@ nested match        FBinaryPredicate ( "have", var(src), ( FVariable (var(y), va
        extend-with  "getMultiwayAdjectivalPoint" with  main : "x" adj : "y" rel : "relatedTo" result : "z"
        as           FBinaryPredicate ( "have", ( "addAdjective" ( var(src) ) with adjective : var(y) ) , FVariable( var(z) , "ENTITY" ) , var(score), var(props) )
 ;
+*/
 
 
 
-// query 10: if x has something which is related to soemthing else, then the source possesses also the related idea (TODO: and y has the same type of z)
+// query 10: if x has something which is a subtype of something else (isA), then x also has the supertype.
+// HOnK-aligned (15 Oct 2026): was relatedTo, which HOnK defines as association only.
 nested match        FBinaryPredicate ( "have" , var(src), ( FVariable (var(z), var(type) ,var(a),var(b),var(c),var(d)) ) , var(score), var(props))
-       extend-with  "getOutgoingNodes" with variable : "z"   result : "y"   rel : "relatedTo"
+       extend-with  "getOutgoingNodes" with variable : "z"   result : "y"   rel : "isA"
        //where        (call "isOfType" with variable : "z" type : "type")
        as deep rewrite jsonpath "$0:$.dst.name" to var(y)
        ;
@@ -128,12 +131,14 @@ nested match FBinaryPredicate (   var(x) , var(src) ,   var(dst) , var(score), v
        as   FBinaryPredicate ( "have" ,  var(dst), FVariable ( var(f), "JJ" ) , var(score), var(props) )
 ;
 
+/* HOnK-aligned (15 Oct 2026): HOnK defines relatedTo as 'general semantic association' (Ch. 4 glossary), which licenses neither implication nor equivalence
 // query 16: query invent 88-89
 nested match FUnaryPredicate (   var(x) , var(arg) ,  var(score), var(props) )
        extend-with "getOutgoingNodes" with variable : "x" result : "f" rel: "relatedTo"
        where call "isOfType" with variable : "f" type : "Adjective"
        as   FUnaryPredicate ( "be" ,  ( "addAdjective" ( var(arg) ) with adjective : var(f) ) , var(score), var(props) )
 ;
+*/
 
 // query 17
 nested match FBinaryPredicate (   var(x) , var(src) ,   var(dst) , var(score), var(props) )
@@ -210,6 +215,7 @@ nested match   FUnaryPredicate ( "be", var(src), var(score), var(props) )
        ;
 
 
+/* HOnK-aligned (15 Oct 2026): HOnK defines relatedTo as 'general semantic association' (Ch. 4 glossary), which licenses neither implication nor equivalence
  // query 27 (9BIS): If the nome/adjective pair is related to a given concept, then this can be grouped as one single variable and represent the relatedness as a RelatedTo
 nested match        FBinaryPredicate ( "have", var(src), ( FVariable (var(y), var(a) ,var(b),var(c),var(d),var(e)) ) , var(score), var(props) )
        replace      var(n) with  jsonpath "$0:$.src.name"
@@ -217,6 +223,7 @@ nested match        FBinaryPredicate ( "have", var(src), ( FVariable (var(y), va
                     "getMultiwayAdjectivalPoint" with  main : "x" adj : "y" rel : "relatedTo" result : "z"
        as           FBinaryPredicate ( "have", ( "addAdjective" ( var(src) ) with adjective : var(y) ) , FVariable( var(z) , "ENTITY" ) , var(score), var(props) )
 ;
+*/
 
 nested match        FBinaryPredicate ( "have", ( FVariable (var(y), var(a) ,var(b),var(c),var(d),var(e)) ) ,var(dst),  var(score), var(props) )
        extend-with "getOutgoingNodes" with variable : "b"   result : "z"   rel : "eq"
