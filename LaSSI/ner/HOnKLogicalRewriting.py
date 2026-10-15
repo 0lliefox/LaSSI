@@ -1,3 +1,4 @@
+from LaSSI.structures import DependencyRoles
 from LaSSI.structures.kernels.Sentence import get_prepositions
 from LaSSI.structures.internal_graph.EntityRelationship import Singleton
 
@@ -162,6 +163,16 @@ def is_weather_condition_adjective(kernel, node, initial_node, has_nmod, value, 
 def is_modal_adjective(kernel, node, initial_node, has_nmod, value, structural_context=None):
     return _is_node_in_honk_set(node, honk.getModalAdjectives(), value)
 
+def has_infinitive_marker(kernel, node, initial_node, has_nmod, value, structural_context=None):
+    """True for a SENTENCE sub-clause whose verb carries the infinitive marker "to" ("to install a fire valve").
+    Only a clause built with its own arguments counts: a bare verb left over from a complement ("expected to end")
+    is not a purpose."""
+    if not (isinstance(node, Singleton) and node.type == "SENTENCE" and node.kernel is not None):
+        return False == value
+    head = node.kernel.edgeLabel
+    props = dict(getattr(head, "properties", {}) or {})
+    return DependencyRoles.is_infinitive_marker(head, "mark", props.get("mark")) == value
+
 def is_prediction_verb(kernel, node, initial_node, has_nmod, value, structural_context=None):
     return _is_node_in_honk_set(node, honk.getPredictionVerbs(), value)
 
@@ -288,6 +299,7 @@ predicate_interpretation = {
     "hasNModIsA": is_a,
     "isSymmetricalIfComparedToNMod": is_symmetrical,
     "Preposition": match_prepositions,
+    "InfinitiveMarker": has_infinitive_marker,
     "sourceIsVerb": source_is_verb,
     "MeansVerb": has_means,
     "PhrasalVerb": is_phrasal_verb
