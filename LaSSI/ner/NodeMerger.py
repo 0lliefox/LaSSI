@@ -130,7 +130,12 @@ class NodeMerger:
                             min=min(grouped_nodes, key=lambda x: x.min).min,
                             max=max(grouped_nodes, key=lambda x: x.max).max,
                             confidence=norm_confidence * math.prod([node.confidence for node in grouped_nodes]),
-                            root=any(map(is_kernel_in_props, grouped_nodes))
+                            # A group is a root when a member is, or when the grammar marked the grouping node
+                            # itself as a clause root (a noun group as passive subject: "incursion and delays ...
+                            # are expected"), which no member carries.
+                            root=any(map(is_kernel_in_props, grouped_nodes)) or (
+                                isinstance(node['data'], Singleton) and
+                                ('root' in dict(node['data'].properties) or 'kernel' in dict(node['data'].properties)))
                         )
 
                         # For a *compound* merge, pass the dependency governor
