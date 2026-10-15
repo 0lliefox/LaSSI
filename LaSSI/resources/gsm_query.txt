@@ -51,6 +51,11 @@ has_nsubjpass_child = (B)--[l:nsubjpass]->(C)
         where (ℓ 0 @ B = verb)
        ↪ (B);
 
+// Identifies a verb introduced by the infinitive marker "to" ("to renew a valve chamber cover").
+has_to_marker = (V)--[m:mark]->(M)
+        where ((ℓ 0 @ V = verb) ∧ (ℓ 0 @ M = TO))
+       ↪ (V);
+
 // RULE: Generalised garden-Path semantic correction
 // If a verb has an active subject (nsubj) but NO active object and NO auxiliary,
 // AND it is explicitly tagged as a past participle (VBN),
@@ -64,13 +69,14 @@ fix_garden_path = (V)--[l:nsubj]->(S)
           (V);
 
 // RULE: Normalise standard reduced relative clauses (Catches cases where the parser actually outputs 'acl')
-// Fires unconditionally for any S--[acl]-->V where V is a verb.
+// Fires for any S--[acl]-->V where V is a verb, except an infinitival clause with its own object
+// ("Roadworks to renew a valve chamber cover"): that clause is active, so S is not its patient.
 // Also propagates nsubjpass to conj siblings of S (e.g. "inspections and repairs being carried out")
 // so that p3pass can form the full AND-group as patient, matching sentence 4's correct structure.
 // This ensures p4 cannot fire on V (p4's guard requires V unmatched p3pass, but adding nsubjpass
 // allows p3pass to fire, blocking p4).
 normalise_acl = (S)--[l:acl]->(V)
-        where (ℓ 0 @ V = verb)
+        where ((ℓ 0 @ V = verb) ∧ ((V unmatched has_to_marker . V) ∨ (V unmatched has_active_object . V)))
        ↪
           set (φ nsubjpass , V) as S
           del l
