@@ -1,0 +1,359 @@
+@prefix rdf:       <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:      <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix lifecycle: <https://ofox.co.uk/lifecycle#> .
+
+# ---------------------------------------------------------------------------
+# LifecycleStates.curated.ttl — curated-knowledge arm of LaSSI v4.4 (loaded
+# only when LASSI_SYNONYMY=curated, on top of LifecycleStates.ttl).  Entries
+# drafted 15 Oct 2026 from Police.uk, Met Office and Street Manager
+# vocabularies and general knowledge, audited, and approved by Oliver; see
+# Civic-Verification/02_design/curated_entries_draft.md (IDs in brackets).
+# ---------------------------------------------------------------------------
+
+# [L1]
+lifecycle:phrase_investigation_complete
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "investigation complete" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+# [L2]
+lifecycle:phrase_no_further_action
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "no further action" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+# [L3]
+lifecycle:phrase_unable_to_prosecute
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "unable to prosecute" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+lifecycle:phrase_unable_to_proceed
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "unable to proceed" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+# [L4]
+lifecycle:phrase_local_resolution
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "local resolution" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+# [L5]
+lifecycle:phrase_not_in_the_public_interest
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "not in the public interest" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+lifecycle:phrase_not_in_public_interest
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "not in public interest" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+# [L6]
+lifecycle:phrase_cautioned
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "cautioned" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+lifecycle:phrase_fined
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "fined" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+lifecycle:phrase_imprisoned
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "imprisoned" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+lifecycle:phrase_sent_to_prison
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "sent to prison" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+lifecycle:phrase_community_sentence
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "community sentence" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+lifecycle:phrase_suspended_prison_sentence
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "suspended prison sentence" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+lifecycle:phrase_not_guilty
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "not guilty" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "closed" .
+
+# [L7]
+lifecycle:phrase_status_update_unavailable
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "status update unavailable" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "descriptive" .
+
+lifecycle:phrase_court_result_unavailable
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "court result unavailable" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "descriptive" .
+
+# [L8]
+lifecycle:phrase_offender
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "offender" ;
+    lifecycle:memberOf lifecycle:SuspectResolution ;
+    lifecycle:partition "present" .
+
+lifecycle:phrase_defendant
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "defendant" ;
+    lifecycle:memberOf lifecycle:SuspectResolution ;
+    lifecycle:partition "present" .
+
+# [L9]
+lifecycle:phrase_snow
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "snow" ;
+    lifecycle:memberOf lifecycle:WeatherPrecipitation ;
+    lifecycle:partition "wet" .
+
+lifecycle:phrase_snowfall
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "snowfall" ;
+    lifecycle:memberOf lifecycle:WeatherPrecipitation ;
+    lifecycle:partition "wet" .
+
+lifecycle:phrase_sleet
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "sleet" ;
+    lifecycle:memberOf lifecycle:WeatherPrecipitation ;
+    lifecycle:partition "wet" .
+
+lifecycle:phrase_hail
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "hail" ;
+    lifecycle:memberOf lifecycle:WeatherPrecipitation ;
+    lifecycle:partition "wet" .
+
+# [L10]
+lifecycle:phrase_showers
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "showers" ;
+    lifecycle:memberOf lifecycle:WeatherPrecipitation ;
+    lifecycle:partition "wet" .
+
+# [L11]
+lifecycle:phrase_suspended
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "suspended" ;
+    lifecycle:memberOf lifecycle:TransportAvailability ;
+    lifecycle:partition "unavailable" .
+
+# [L12]
+# ---------------------------------------------------------------------------
+# Service-level dimension — whether a public-transport service is asserted to
+# run normally or to be disrupted (reduced, suspended, or not running).
+# Binary, so a negated "running as normal" inverts to "disrupted".
+# Source: general knowledge of UK transport status notices (no official Nexus
+# status vocabulary consulted).
+# ---------------------------------------------------------------------------
+
+lifecycle:ServiceLevel
+    a lifecycle:LifecycleDimension ;
+    rdfs:label "service_level" ;
+    rdfs:comment "e.g. 'Metro services are running as normal.' vs 'There is a reduced service on the Metro.' / 'There are no trains between Pelaw and South Shields.'" .
+
+# ---------- Normal ----------
+
+lifecycle:phrase_running_as_normal
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "running as normal" ;
+    lifecycle:memberOf lifecycle:ServiceLevel ;
+    lifecycle:partition "normal" .
+
+lifecycle:phrase_running_normally
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "running normally" ;
+    lifecycle:memberOf lifecycle:ServiceLevel ;
+    lifecycle:partition "normal" .
+
+lifecycle:phrase_normal_service
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "normal service" ;
+    lifecycle:memberOf lifecycle:ServiceLevel ;
+    lifecycle:partition "normal" .
+
+lifecycle:phrase_good_service
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "good service" ;
+    lifecycle:memberOf lifecycle:ServiceLevel ;
+    lifecycle:partition "normal" .
+
+# ---------- Disrupted ----------
+
+lifecycle:phrase_reduced_service
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "reduced service" ;
+    lifecycle:memberOf lifecycle:ServiceLevel ;
+    lifecycle:partition "disrupted" .
+
+lifecycle:phrase_no_service
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "no service" ;
+    lifecycle:memberOf lifecycle:ServiceLevel ;
+    lifecycle:partition "disrupted" .
+
+lifecycle:phrase_no_trains
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "no trains" ;
+    lifecycle:memberOf lifecycle:ServiceLevel ;
+    lifecycle:partition "disrupted" .
+
+lifecycle:phrase_suspended_service_level
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "suspended" ;
+    lifecycle:memberOf lifecycle:ServiceLevel ;
+    lifecycle:partition "disrupted" .
+
+# [L13]
+# ---------------------------------------------------------------------------
+# Carriageway-impact dimension — how far a works' traffic management takes the
+# carriageway away from traffic.  A Street Manager permit records exactly one
+# TrafficManagementType, and the three bands below cannot hold of the same
+# works at the same time: a road closure stops all traffic; the "partial"
+# methods (lane closure, signals, boards, contraflow, ...) presuppose traffic
+# still passing; "no carriageway incursion" means the carriageway is untouched.
+# Methods within the "partial" band are compatible with each other (a lane
+# closure is routinely controlled by two-way signals), so they share a partition.
+# Source: Street Manager TrafficManagementType enum (Work API v7.12 swagger);
+# the banding is general knowledge of UK roadworks traffic management.
+# ---------------------------------------------------------------------------
+
+lifecycle:CarriagewayImpact
+    a lifecycle:LifecycleDimension ;
+    rdfs:label "carriageway_impact" ;
+    rdfs:comment "e.g. 'Traffic management: road closure.' vs 'Two-way signals are in place.' / 'Traffic management: no carriageway incursion.'" .
+
+# ---------- Full closure ----------
+
+lifecycle:phrase_road_closure
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "road closure" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "full_closure" .
+
+lifecycle:phrase_full_road_closure
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "full road closure" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "full_closure" .
+
+# ---------- Partial (traffic still passing) ----------
+
+lifecycle:phrase_lane_closure
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "lane closure" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "partial" .
+
+lifecycle:phrase_contraflow
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "contraflow" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "partial" .
+
+lifecycle:phrase_two-way_signals
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "two-way signals" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "partial" .
+
+lifecycle:phrase_multi-way_signals
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "multi-way signals" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "partial" .
+
+lifecycle:phrase_stop_go_boards
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "stop/go boards" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "partial" .
+
+lifecycle:phrase_convoy_working
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "convoy working" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "partial" .
+
+lifecycle:phrase_priority_working
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "priority working" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "partial" .
+
+lifecycle:phrase_give_and_take
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "give and take" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "partial" .
+
+lifecycle:phrase_some_carriageway_incursion
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "some carriageway incursion" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "partial" .
+
+# ---------- Carriageway untouched ----------
+
+lifecycle:phrase_no_carriageway_incursion
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "no carriageway incursion" ;
+    lifecycle:memberOf lifecycle:CarriagewayImpact ;
+    lifecycle:partition "no_incursion" .
+
+# [J2] Court-stage outcomes assert no investigation-stage partition (the file
+# puts "charged" in closed; "awaiting court outcome" follows a charge).
+lifecycle:phrase_awaiting_court_outcome
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "awaiting court outcome" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "descriptive" .
+
+lifecycle:phrase_sent_to_crown_court
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "sent to crown court" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "descriptive" .
+
+# [J3] Police.uk "Action to be taken by another organisation": the matter
+# continues elsewhere, so no partition is asserted.
+lifecycle:phrase_action_by_another_organisation
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "action to be taken by another organisation" ;
+    lifecycle:memberOf lifecycle:CaseLifecycle ;
+    lifecycle:partition "descriptive" .
+
+# [J4] Met Office codes 2/3 "Partly cloudy": descriptive, so the token fallback
+# no longer files it under "cloudy" (overcast) against "sunny spells".
+lifecycle:phrase_partly_cloudy
+    a lifecycle:LifecyclePhrase ;
+    rdfs:label "partly cloudy" ;
+    lifecycle:memberOf lifecycle:SkyCondition ;
+    lifecycle:partition "descriptive" .

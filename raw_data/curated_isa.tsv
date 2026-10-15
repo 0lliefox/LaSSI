@@ -1,0 +1,13 @@
+# curated-knowledge arm of LaSSI v4.4 (LASSI_SYNONYMY=curated): subtype<TAB>supertype<TAB>draft ID.
+# Loaded as HOnK isA edges in HOnK's own adjacency layout (supertype -> subtypes). R1, R3 and R9 were
+# dropped in the audit because HOnK already holds them (WordNet).
+bicycle theft	theft	R2
+theft from the person	theft	R4
+arson	criminal damage and arson	R5
+criminal damage	criminal damage and arson	R5
+violent crime	violence and sexual offences	R6
+sexual offence	violence and sexual offences	R6
+two-way signals	temporary traffic lights	R7
+multi-way signals	temporary traffic lights	R7
+emergency works	immediate works	R8
+urgent works	immediate works	R8
