@@ -127,8 +127,6 @@ def create_existential(G, nodes, node_functions):
 
 
 def create_cop(node, kernel, target_or_source):
-    _tgt_before = kernel.target.named_entity if kernel.target else None
-    _lbl = kernel.edgeLabel.named_entity if kernel.edgeLabel else None
     if target_or_source == 'target':
         # TODO: Ollie: Is it correct to say if target is None add to source otherwise add to target?
         if kernel.target is None:
