@@ -94,6 +94,7 @@ class KernelPostProcessor:
             ('cleanup_space_property',                self.cleanup_space_property),
             ('rules:post_cleanup',                    lambda k: self._apply_structural_rules(k, "post_cleanup")),
             # ('promote_extra_of_space_entities',       self.promote_extra_of_space_entities),
+            ('promote_modal_modifiers',               self.promote_modal_modifiers),
             ('filter_invalid_property_keys',          self.filter_invalid_property_keys),
             ('apply_honk_normalisations',             self.apply_honk_normalisations)
         ]
@@ -294,6 +295,55 @@ class KernelPostProcessor:
                     keys.add(name.upper().replace(' ', '_'))
         self._valid_property_keys_cache = keys
         return keys
+
+    def promote_modal_modifiers(self, value):
+        """Turn a modal adjective modifying a noun ("unlikely delays", "possible closure") into MODALITY on that
+        noun, everywhere in the kernel. As a plain `amod` it is dropped from the logical form, which would let
+        "possible delays" entail "delays"; MODALITY is an intensional property (logical_analysis.json), so the
+        modal noun no longer entails the plain one."""
+        if isinstance(value, SetOfSingletons):
+            new_entities = [self.promote_modal_modifiers(e) for e in value.entities]
+            if any(a is not b for a, b in zip(value.entities, new_entities)):
+                value = value.update_entities(new_entities)
+            return value
+        if not isinstance(value, Singleton):
+            return value
+        if value.kernel is not None:
+            for side in ('source', 'target'):
+                node = getattr(value.kernel, side)
+                if node is not None:
+                    new_node = self.promote_modal_modifiers(node)
+                    if new_node is not node:
+                        value = value.update_kernel(new_node, side)
+        props = dict(value.properties)
+        changed = False
+        for key, item in list(props.items()):
+            if isinstance(item, (Singleton, SetOfSingletons)):
+                new_item = self.promote_modal_modifiers(item)
+                if new_item is not item:
+                    props[key], changed = new_item, True
+            elif isinstance(item, (list, tuple)) and any(isinstance(x, (Singleton, SetOfSingletons)) for x in item):
+                new_items = [self.promote_modal_modifiers(x) for x in item]
+                if any(a is not b for a, b in zip(item, new_items)):
+                    props[key], changed = new_items, True
+        amods = props.get('amod')
+        amod_list = [amods] if isinstance(amods, str) else list(amods) if isinstance(amods, (list, tuple)) else []
+        modals = {m.lower() for m in (self.services.getHOnK().getModalAdjectives() or ())}
+        modal_amods = [a for a in amod_list if isinstance(a, str) and a.lower() in modals]
+        if modal_amods and value.kernel is None:
+            rest = [a for a in amod_list if a not in modal_amods]
+            if rest:
+                props['amod'] = tuple(rest) if len(rest) > 1 else rest[0]
+            else:
+                props.pop('amod')
+            modality = list(props.get('MODALITY', []) or [])
+            for adjective in modal_amods:
+                modality.append(Singleton(
+                    id=self.node_functions.fresh_id(), named_entity=adjective, properties=frozenset(),
+                    min=value.min, max=value.max, type="JJ", confidence=1.0, kernel=None))
+            props['MODALITY'] = modality
+            changed = True
+        return value.update_node_props(props) if changed else value
 
     def filter_invalid_property_keys(self, kernel):
         """Strip top-level property keys that aren't valid semantic types.
