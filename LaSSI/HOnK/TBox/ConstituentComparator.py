@@ -383,7 +383,9 @@ def _formula_core_values(formula):
         values.extend([formula.src, formula.dst])
     elif isinstance(formula, FUnaryPredicate):
         values.append(formula.arg)
-    return [v for v in values if v is not None]
+    # An existential argument (the unnamed agent of a passive, "?1") names nothing: every value implies it, so it
+    # would cover any property value the other side states.
+    return [v for v in values if v is not None and not isExistential(v)]
 
 
 def _value_matches_formula_core(d, val, formula):
