@@ -173,6 +173,9 @@ def has_infinitive_marker(kernel, node, initial_node, has_nmod, value, structura
     props = dict(getattr(head, "properties", {}) or {})
     return DependencyRoles.is_infinitive_marker(head, "mark", props.get("mark")) == value
 
+def is_orientation_noun(kernel, node, initial_node, has_nmod, value, structural_context=None):
+    return _is_node_in_honk_set(node, honk.getOrientationNouns(), value)
+
 def is_prediction_verb(kernel, node, initial_node, has_nmod, value, structural_context=None):
     return _is_node_in_honk_set(node, honk.getPredictionVerbs(), value)
 
@@ -300,6 +303,7 @@ predicate_interpretation = {
     "isSymmetricalIfComparedToNMod": is_symmetrical,
     "Preposition": match_prepositions,
     "InfinitiveMarker": has_infinitive_marker,
+    "OrientationNoun": is_orientation_noun,
     "sourceIsVerb": source_is_verb,
     "MeansVerb": has_means,
     "PhrasalVerb": is_phrasal_verb
