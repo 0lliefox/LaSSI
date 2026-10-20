@@ -709,6 +709,10 @@ class HOnK(RDFGraph):
 
     def getOutgoingNodes(self, srcLabel, edgeType):
         """Override to support both direct predicates and numbered instance predicates."""
+        if getattr(self, "_synonymy_mode", "capped") == "curated" and edgeType in ("eq", "neqTo"):
+            # The curated arm's TBox rules use the curated relations, one hop, like name_eq does.
+            table = self._eq_adj if edgeType == "eq" else self._neqTo_adj
+            return set(table.get(srcLabel, ())) | set(table.get(str(srcLabel).lower(), ()))
         S = super().getOutgoingNodes(srcLabel, edgeType)
         if S:
             return S
@@ -931,6 +935,15 @@ class HOnK(RDFGraph):
         with open(path, "rb") as f:
             self._eq_adj = pickle.load(f)
         print(f"[HOnK]   synonymy: curated, one hop ({len(self._eq_adj)} terms) from {path}", flush=True)
+        # Curated antonyms (cursyn/build_curated_neq.py): WordNet antonyms, or ConceptNet Antonym and Wiktionary
+        # antonyms agreeing; DistinctFrom is not an antonym source. Replaces neqTo for both of its consumers, name_eq
+        # and the TBox rules (via getOutgoingNodes).
+        neq_path = os.environ.get("LASSI_CURATED_NEQ")
+        if not neq_path or not os.path.exists(neq_path):
+            raise FileNotFoundError(f"LASSI_SYNONYMY=curated needs LASSI_CURATED_NEQ to name the curated antonym pickle ({neq_path!r})")
+        with open(neq_path, "rb") as f:
+            self._neqTo_adj = pickle.load(f)
+        print(f"[HOnK]   antonyms: curated, one hop ({len(self._neqTo_adj)} terms) from {neq_path}", flush=True)
         # Curated isA edges (raw_data/curated_isa.tsv: subtype, supertype), stored in the
         # adjacency's own layout, supertype -> subtypes, as HOnK's Parmenides edges are.
         isa_path = os.path.join(os.path.dirname(__file__), "..", "..", "raw_data", "curated_isa.tsv")
