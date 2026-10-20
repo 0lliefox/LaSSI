@@ -640,6 +640,7 @@ def adverbial_clause_kernel(G, clause_id, negations, node_functions, consumed_ed
     clause = G.nodes[clause_id]['data']
     source, target = None, None
     sub_properties = defaultdict(list)
+    seen_children = set()
     for u, v, key, data in list(G.out_edges(clause_id, keys=True, data=True)):
         label = data.get('label')
         label_name = getattr(label, 'named_entity', None)
@@ -647,6 +648,21 @@ def adverbial_clause_kernel(G, clause_id, negations, node_functions, consumed_ed
         if child is None:
             continue
         consumed_edges.add((u, v, key))
+        if v in seen_children:
+            continue
+        seen_children.add(v)
+        if isinstance(child, SetOfSingletons) and child.type == Grouping.MULTIINDIRECT:
+            # The grammar groups a verb's object and its obliques ("affecting trains ... in both directions") into
+            # one node reached by both edges: the member without a case marker is the object, the others are
+            # properties classified by their preposition.
+            for member in child.entities:
+                if target is None and not case_in_props(dict(member.properties)):
+                    target = member
+                else:
+                    member_key = node_functions.get_node_type(member)
+                    if member not in sub_properties[member_key]:
+                        sub_properties[member_key].append(member)
+            continue
         if label_name in _CLAUSE_SUBJECT_LABELS and source is None:
             source = child
         elif label_name in _CLAUSE_OBJECT_LABELS and target is None:
