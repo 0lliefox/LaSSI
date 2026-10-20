@@ -1114,6 +1114,23 @@
     },
     {
       "premise": {
+        "Preposition": [
+          "in"
+        ],
+        "OrientationNoun": true
+      },
+      "classification": [
+        {
+          "type": "specification"
+        }
+      ],
+      "__sentence_examples": [
+        "affecting trains in both directions",
+        "closed in the northbound direction"
+      ]
+    },
+    {
+      "premise": {
         "InfinitiveMarker": true
       },
       "classification": [
