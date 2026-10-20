@@ -1,0 +1,1285 @@
+id:0
+ell:
+JJ
+root
+.
+xi:
+unlikely
+.
+properties:
+"xpos"	"JJ"
+"pos"	"3"
+"end"	"19"
+"begin"	"11"
+.
+phi:
+"cop"
+	1.0	1
+;"punct"
+	1.0	2
+;"nsubj"
+	1.0	3
+;.
+
+id:3
+ell:
+noun
+.
+xi:
+Delays
+.
+properties:
+"number"	"plural"
+"xpos"	"NNS"
+"pos"	"1"
+"specification"	"common"
+"lemma"	"delay"
+"end"	"6"
+"begin"	"0"
+.
+phi:
+.
+
+id:1
+ell:
+verb
+.
+xi:
+are
+.
+properties:
+"xpos"	"VBP"
+"pos"	"2"
+"lemma"	"be"
+"end"	"10"
+"begin"	"7"
+.
+phi:
+.
+
+id:2
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"4"
+"end"	"20"
+"begin"	"19"
+.
+phi:
+.
+
+~~
+id:0
+ell:
+verb
+root
+.
+xi:
+considered
+.
+properties:
+"xpos"	"VBN"
+"pos"	"3"
+"lemma"	"consider"
+"end"	"21"
+"begin"	"11"
+.
+phi:
+"nsubjpass"
+	1.0	1
+;"auxpass"
+	1.0	2
+;"punct"
+	1.0	3
+;"xcomp"
+	1.0	4
+;.
+
+id:1
+ell:
+noun
+.
+xi:
+Delays
+.
+properties:
+"number"	"plural"
+"xpos"	"NNS"
+"pos"	"1"
+"specification"	"common"
+"lemma"	"delay"
+"end"	"6"
+"begin"	"0"
+.
+phi:
+.
+
+id:2
+ell:
+verb
+.
+xi:
+are
+.
+properties:
+"xpos"	"VBP"
+"pos"	"2"
+"lemma"	"be"
+"end"	"10"
+"begin"	"7"
+.
+phi:
+.
+
+id:4
+ell:
+JJ
+.
+xi:
+unlikely
+.
+properties:
+"xpos"	"JJ"
+"pos"	"4"
+"end"	"30"
+"begin"	"22"
+.
+phi:
+.
+
+id:3
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"5"
+"end"	"31"
+"begin"	"30"
+.
+phi:
+.
+
+~~
+id:0
+ell:
+,
+.
+xi:
+,
+.
+properties:
+"xpos"	","
+"pos"	"8"
+"end"	"42"
+"begin"	"41"
+.
+phi:
+.
+
+id:1
+ell:
+noun
+.
+xi:
+delays
+.
+properties:
+"number"	"plural"
+"xpos"	"NNS"
+"pos"	"10"
+"specification"	"common"
+"lemma"	"delay"
+"end"	"54"
+"begin"	"48"
+.
+phi:
+"case"
+	1.0	2
+;.
+
+id:2
+ell:
+IN
+.
+xi:
+with
+.
+properties:
+"xpos"	"IN"
+"pos"	"9"
+"end"	"47"
+"begin"	"43"
+.
+phi:
+.
+
+id:3
+ell:
+JJ
+.
+xi:
+unlikely
+.
+properties:
+"xpos"	"JJ"
+"pos"	"11"
+"end"	"63"
+"begin"	"55"
+.
+phi:
+.
+
+id:4
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"12"
+"end"	"64"
+"begin"	"63"
+.
+phi:
+.
+
+id:5
+ell:
+verb
+root
+.
+xi:
+taking
+.
+properties:
+"xpos"	"VBG"
+"pos"	"3"
+"lemma"	"take"
+"end"	"20"
+"begin"	"14"
+.
+phi:
+"aux"
+	1.0	6
+;"obj"
+	1.0	7
+;"obl"
+	1.0	8
+	1.0	1
+;"punct"
+	1.0	0
+	1.0	4
+;"nsubj"
+	1.0	9
+;"xcomp"
+	1.0	3
+;.
+
+id:9
+ell:
+noun
+.
+xi:
+Roadworks
+.
+properties:
+"number"	"plural"
+"xpos"	"NNS"
+"pos"	"1"
+"specification"	"common"
+"lemma"	"roadwork"
+"end"	"9"
+"begin"	"0"
+.
+phi:
+.
+
+id:6
+ell:
+verb
+.
+xi:
+are
+.
+properties:
+"xpos"	"VBP"
+"pos"	"2"
+"lemma"	"be"
+"end"	"13"
+"begin"	"10"
+.
+phi:
+.
+
+id:7
+ell:
+noun
+.
+xi:
+place
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"4"
+"specification"	"common"
+"end"	"26"
+"begin"	"21"
+.
+phi:
+.
+
+id:8
+ell:
+noun
+.
+xi:
+Road
+.
+properties:
+"number"	"singular"
+"xpos"	"NNP"
+"pos"	"7"
+"specification"	"proper"
+"end"	"41"
+"begin"	"37"
+.
+phi:
+"compound"
+	1.0	10
+;"case"
+	1.0	11
+;.
+
+id:11
+ell:
+IN
+.
+xi:
+on
+.
+properties:
+"xpos"	"IN"
+"pos"	"5"
+"end"	"29"
+"begin"	"27"
+.
+phi:
+.
+
+id:10
+ell:
+noun
+.
+xi:
+Church
+.
+properties:
+"number"	"singular"
+"xpos"	"NNP"
+"pos"	"6"
+"specification"	"proper"
+"end"	"36"
+"begin"	"30"
+.
+phi:
+.
+
+~~
+id:0
+ell:
+JJ
+.
+xi:
+unlikely
+.
+properties:
+"xpos"	"JJ"
+"pos"	"12"
+"end"	"74"
+"begin"	"66"
+.
+phi:
+.
+
+id:1
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"13"
+"end"	"75"
+"begin"	"74"
+.
+phi:
+.
+
+id:2
+ell:
+verb
+root
+.
+xi:
+taking
+.
+properties:
+"xpos"	"VBG"
+"pos"	"3"
+"lemma"	"take"
+"end"	"20"
+"begin"	"14"
+.
+phi:
+"aux"
+	1.0	3
+;"obj"
+	1.0	4
+;"obl"
+	1.0	5
+;"punct"
+	1.0	1
+	1.0	6
+;"nsubj"
+	1.0	7
+;.
+
+id:7
+ell:
+noun
+.
+xi:
+Roadworks
+.
+properties:
+"number"	"plural"
+"xpos"	"NNS"
+"pos"	"1"
+"specification"	"common"
+"lemma"	"roadwork"
+"end"	"9"
+"begin"	"0"
+.
+phi:
+.
+
+id:3
+ell:
+verb
+.
+xi:
+are
+.
+properties:
+"xpos"	"VBP"
+"pos"	"2"
+"lemma"	"be"
+"end"	"13"
+"begin"	"10"
+.
+phi:
+.
+
+id:4
+ell:
+noun
+.
+xi:
+place
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"4"
+"specification"	"common"
+"end"	"26"
+"begin"	"21"
+.
+phi:
+"nmod"
+	1.0	8
+;.
+
+id:8
+ell:
+noun
+.
+xi:
+Road
+.
+properties:
+"number"	"singular"
+"xpos"	"NNP"
+"pos"	"7"
+"specification"	"proper"
+"end"	"41"
+"begin"	"37"
+.
+phi:
+"compound"
+	1.0	9
+;"case"
+	1.0	10
+;.
+
+id:10
+ell:
+IN
+.
+xi:
+on
+.
+properties:
+"xpos"	"IN"
+"pos"	"5"
+"end"	"29"
+"begin"	"27"
+.
+phi:
+.
+
+id:9
+ell:
+noun
+.
+xi:
+Church
+.
+properties:
+"number"	"singular"
+"xpos"	"NNP"
+"pos"	"6"
+"specification"	"proper"
+"end"	"36"
+"begin"	"30"
+.
+phi:
+.
+
+id:6
+ell:
+,
+.
+xi:
+,
+.
+properties:
+"xpos"	","
+"pos"	"8"
+"end"	"42"
+"begin"	"41"
+.
+phi:
+.
+
+id:5
+ell:
+noun
+.
+xi:
+delays
+.
+properties:
+"number"	"plural"
+"xpos"	"NNS"
+"pos"	"10"
+"specification"	"common"
+"lemma"	"delay"
+"end"	"54"
+"begin"	"48"
+.
+phi:
+"acl"
+	1.0	11
+;"case"
+	1.0	12
+;.
+
+id:12
+ell:
+IN
+.
+xi:
+with
+.
+properties:
+"xpos"	"IN"
+"pos"	"9"
+"end"	"47"
+"begin"	"43"
+.
+phi:
+.
+
+id:11
+ell:
+verb
+.
+xi:
+considered
+.
+properties:
+"xpos"	"VBN"
+"pos"	"11"
+"lemma"	"consider"
+"end"	"65"
+"begin"	"55"
+.
+phi:
+"xcomp"
+	1.0	0
+;.
+
+~~
+id:0
+ell:
+JJ
+root
+.
+xi:
+underway
+.
+properties:
+"xpos"	"JJ"
+"pos"	"3"
+"end"	"22"
+"begin"	"14"
+.
+phi:
+"cop"
+	1.0	1
+;"conj"
+	1.0	2
+;"punct"
+	1.0	3
+	1.0	4
+;"nsubj"
+	1.0	5
+;.
+
+id:5
+ell:
+noun
+.
+xi:
+Roadworks
+.
+properties:
+"number"	"plural"
+"xpos"	"NNS"
+"pos"	"1"
+"specification"	"common"
+"lemma"	"roadwork"
+"end"	"9"
+"begin"	"0"
+.
+phi:
+.
+
+id:1
+ell:
+verb
+.
+xi:
+are
+.
+properties:
+"xpos"	"VBP"
+"pos"	"2"
+"lemma"	"be"
+"end"	"13"
+"begin"	"10"
+.
+phi:
+.
+
+id:3
+ell:
+,
+.
+xi:
+,
+.
+properties:
+"xpos"	","
+"pos"	"4"
+"end"	"23"
+"begin"	"22"
+.
+phi:
+.
+
+id:2
+ell:
+verb
+.
+xi:
+considered
+.
+properties:
+"xpos"	"VBN"
+"pos"	"8"
+"lemma"	"consider"
+"end"	"49"
+"begin"	"39"
+.
+phi:
+"cc"
+	1.0	6
+;"nsubjpass"
+	1.0	7
+;"auxpass"
+	1.0	8
+;"xcomp"
+	1.0	9
+;.
+
+id:6
+ell:
+CC
+.
+xi:
+and
+.
+properties:
+"xpos"	"CC"
+"pos"	"5"
+"end"	"27"
+"begin"	"24"
+.
+phi:
+.
+
+id:7
+ell:
+noun
+.
+xi:
+delays
+.
+properties:
+"number"	"plural"
+"xpos"	"NNS"
+"pos"	"6"
+"specification"	"common"
+"lemma"	"delay"
+"end"	"34"
+"begin"	"28"
+.
+phi:
+.
+
+id:8
+ell:
+verb
+.
+xi:
+are
+.
+properties:
+"xpos"	"VBP"
+"pos"	"7"
+"lemma"	"be"
+"end"	"38"
+"begin"	"35"
+.
+phi:
+.
+
+id:9
+ell:
+JJ
+.
+xi:
+unlikely
+.
+properties:
+"xpos"	"JJ"
+"pos"	"9"
+"end"	"58"
+"begin"	"50"
+.
+phi:
+.
+
+id:4
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"10"
+"end"	"59"
+"begin"	"58"
+.
+phi:
+.
+
+~~
+id:0
+ell:
+JJ
+.
+xi:
+unlikely
+.
+properties:
+"xpos"	"JJ"
+"pos"	"8"
+"end"	"47"
+"begin"	"39"
+.
+phi:
+"cc"
+	1.0	1
+;"cop"
+	1.0	2
+;"nsubj"
+	1.0	3
+;.
+
+id:1
+ell:
+CC
+.
+xi:
+and
+.
+properties:
+"xpos"	"CC"
+"pos"	"5"
+"end"	"27"
+"begin"	"24"
+.
+phi:
+.
+
+id:3
+ell:
+noun
+.
+xi:
+delays
+.
+properties:
+"number"	"plural"
+"xpos"	"NNS"
+"pos"	"6"
+"specification"	"common"
+"lemma"	"delay"
+"end"	"34"
+"begin"	"28"
+.
+phi:
+.
+
+id:2
+ell:
+verb
+.
+xi:
+are
+.
+properties:
+"xpos"	"VBP"
+"pos"	"7"
+"lemma"	"be"
+"end"	"38"
+"begin"	"35"
+.
+phi:
+.
+
+id:4
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"9"
+"end"	"48"
+"begin"	"47"
+.
+phi:
+.
+
+id:5
+ell:
+JJ
+root
+.
+xi:
+underway
+.
+properties:
+"xpos"	"JJ"
+"pos"	"3"
+"end"	"22"
+"begin"	"14"
+.
+phi:
+"cop"
+	1.0	6
+;"conj"
+	1.0	0
+;"punct"
+	1.0	7
+	1.0	4
+;"nsubj"
+	1.0	8
+;.
+
+id:8
+ell:
+noun
+.
+xi:
+Roadworks
+.
+properties:
+"number"	"plural"
+"xpos"	"NNS"
+"pos"	"1"
+"specification"	"common"
+"lemma"	"roadwork"
+"end"	"9"
+"begin"	"0"
+.
+phi:
+.
+
+id:6
+ell:
+verb
+.
+xi:
+are
+.
+properties:
+"xpos"	"VBP"
+"pos"	"2"
+"lemma"	"be"
+"end"	"13"
+"begin"	"10"
+.
+phi:
+.
+
+id:7
+ell:
+,
+.
+xi:
+,
+.
+properties:
+"xpos"	","
+"pos"	"4"
+"end"	"23"
+"begin"	"22"
+.
+phi:
+.
+
+~~
+id:0
+ell:
+verb
+root
+.
+xi:
+closed
+.
+properties:
+"xpos"	"VBN"
+"pos"	"4"
+"lemma"	"close"
+"end"	"18"
+"begin"	"12"
+.
+phi:
+"nsubjpass"
+	1.0	1
+;"auxpass"
+	1.0	2
+;"punct"
+	1.0	3
+;"xcomp"
+	1.0	4
+;.
+
+id:1
+ell:
+noun
+.
+xi:
+road
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"2"
+"specification"	"common"
+"end"	"8"
+"begin"	"4"
+.
+phi:
+"det"
+	1.0	5
+;.
+
+id:5
+ell:
+det
+.
+xi:
+The
+.
+properties:
+"xpos"	"DT"
+"pos"	"1"
+"lemma"	"the"
+"end"	"3"
+"begin"	"0"
+.
+phi:
+.
+
+id:2
+ell:
+verb
+.
+xi:
+is
+.
+properties:
+"xpos"	"VBZ"
+"pos"	"3"
+"lemma"	"be"
+"end"	"11"
+"begin"	"9"
+.
+phi:
+.
+
+id:4
+ell:
+verb
+.
+xi:
+allow
+.
+properties:
+"xpos"	"VB"
+"pos"	"6"
+"end"	"27"
+"begin"	"22"
+.
+phi:
+"obj"
+	1.0	6
+;"mark"
+	1.0	7
+;.
+
+id:7
+ell:
+TO
+.
+xi:
+to
+.
+properties:
+"xpos"	"TO"
+"pos"	"5"
+"end"	"21"
+"begin"	"19"
+.
+phi:
+.
+
+id:6
+ell:
+noun
+.
+xi:
+resurfacing
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"7"
+"specification"	"common"
+"end"	"39"
+"begin"	"28"
+.
+phi:
+.
+
+id:3
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"8"
+"end"	"40"
+"begin"	"39"
+.
+phi:
+.
+
+~~
+id:0
+ell:
+verb
+.
+xi:
+run
+.
+properties:
+"xpos"	"VB"
+"pos"	"5"
+"end"	"26"
+"begin"	"23"
+.
+phi:
+"advmod"
+	1.0	1
+;"mark"
+	1.0	2
+;.
+
+id:2
+ell:
+TO
+.
+xi:
+to
+.
+properties:
+"xpos"	"TO"
+"pos"	"4"
+"end"	"22"
+"begin"	"20"
+.
+phi:
+.
+
+id:1
+ell:
+RB
+.
+xi:
+normally
+.
+properties:
+"xpos"	"RB"
+"pos"	"6"
+"end"	"35"
+"begin"	"27"
+.
+phi:
+.
+
+id:3
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"7"
+"end"	"36"
+"begin"	"35"
+.
+phi:
+.
+
+id:4
+ell:
+verb
+root
+.
+xi:
+expected
+.
+properties:
+"xpos"	"VBN"
+"pos"	"3"
+"lemma"	"expect"
+"end"	"19"
+"begin"	"11"
+.
+phi:
+"nsubjpass"
+	1.0	5
+;"auxpass"
+	1.0	6
+;"punct"
+	1.0	3
+;"xcomp"
+	1.0	0
+;.
+
+id:5
+ell:
+noun
+.
+xi:
+Trains
+.
+properties:
+"number"	"plural"
+"xpos"	"NNS"
+"pos"	"1"
+"specification"	"common"
+"lemma"	"train"
+"end"	"6"
+"begin"	"0"
+.
+phi:
+.
+
+id:6
+ell:
+verb
+.
+xi:
+are
+.
+properties:
+"xpos"	"VBP"
+"pos"	"2"
+"lemma"	"be"
+"end"	"10"
+"begin"	"7"
+.
+phi:
+.
+
