@@ -643,6 +643,7 @@ def test_pairwise_sentence_similarity(d, x, y, store=True, shift=True):
                 map(lambda z: _canonical_predicate_property_key(z[0]), yprop)
             )
             hasDirectSubset = False
+            space_judged_jointly = False
             dLHS = _dict_from_predicate_props(xprop)
             dRHS = _dict_from_predicate_props(yprop)
             def _value_in_other(val, other_dict):
@@ -673,6 +674,7 @@ def test_pairwise_sentence_similarity(d, x, y, store=True, shift=True):
                         from LaSSI.HOnK.TBox.SpatialReasoner import _space_coreference_verdict
                         cor = _space_coreference_verdict(x, y)
                         if cor is not None:
+                            space_judged_jointly = True
                             keyCmp[key] = cor
                             cor_inv = _space_coreference_verdict(y, x)
                             keyCmpInv[key] = cor_inv if cor_inv is not None else CasusHappening.INDIFFERENT
@@ -802,6 +804,10 @@ def test_pairwise_sentence_similarity(d, x, y, store=True, shift=True):
             elif val != CasusHappening.INDIFFERENT:
                 rhs_obligation_unmet = False
                 for k in dRHS:
+                    if k == "SPACE" and space_judged_jointly:
+                        # The two SPACE lists were judged as wholes above (a "<Facility>, <Town>" pair against
+                        # "<Town> <Facility>"); checking their values one at a time would overrule that verdict.
+                        continue
                     if k not in dLHS:
                         if not any(_value_in_other(yy, dLHS) or _value_matches_formula_core(d, yy, x)
                                    for yy in dRHS[k]):
