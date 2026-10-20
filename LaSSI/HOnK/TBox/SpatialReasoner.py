@@ -19,6 +19,48 @@ def set_doc_geo_names(names) -> None:
     _DOC_GEO_NAMES = frozenset(
         n.strip().lower() for n in (names or ()) if isinstance(n, str) and n.strip()
     )
+
+
+# The evidence's source and location label, from the dataset's sidecar (set by LaSSI per dataset).
+_DOC_SOURCE = None
+_DOC_LOCATION = None
+_MAP_POINT_TYPES_CACHE = None
+
+
+def set_doc_source(source, location) -> None:
+    global _DOC_SOURCE, _DOC_LOCATION
+    _DOC_SOURCE = source.strip() if isinstance(source, str) and source.strip() else None
+    _DOC_LOCATION = location.strip() if isinstance(location, str) and location.strip() else None
+
+
+def _police_uk_map_point_types():
+    """The point-of-interest types Police.uk names its non-street map points by (raw_data/police_uk_map_point_types.txt)."""
+    global _MAP_POINT_TYPES_CACHE
+    if _MAP_POINT_TYPES_CACHE is None:
+        import os
+        path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "raw_data", "police_uk_map_point_types.txt")
+        try:
+            with open(path, encoding="utf-8") as fh:
+                _MAP_POINT_TYPES_CACHE = frozenset(l.strip().lower() for l in fh if l.strip() and not l.startswith("#"))
+        except OSError:
+            _MAP_POINT_TYPES_CACHE = frozenset()
+    return _MAP_POINT_TYPES_CACHE
+
+
+def _source_place_kind(name):
+    """Curated arm (LASSI_SYNONYMY=curated) only: the kind a source's own format gives a place name. Police.uk replaces
+    a crime's location by an anonymous map point, which is either the centre of a street, named after the street, or a
+    point of interest named only by its type ("Parking Area", "Supermarket"; data.police.uk/about). So the record's
+    location label, when it is not one of those types, names a street. None when no source convention applies."""
+    import os, re
+    if os.environ.get("LASSI_SYNONYMY", "capped") != "curated":
+        return None
+    if (_DOC_SOURCE or "").lower() != "police.uk" or not _DOC_LOCATION or not isinstance(name, str):
+        return None
+    label = re.sub(r"^\s*on\s+or\s+near\s+", "", _DOC_LOCATION, flags=re.IGNORECASE).strip()
+    if not label or label.lower() in _police_uk_map_point_types():
+        return None
+    return "street" if _name_tokens(name) == _name_tokens(label) else None
 # Spatial-relation type labels, declared once in logical_analysis.json's
 # `spatial_relations` block (where they originate as the `type: space`
 # derivation-rule properties). `movement` = displacement-or-stay labels;
@@ -377,9 +419,9 @@ def _class_typed_members():
 
 
 def _place_kind(name, value) -> str | None:
-    """The kind of place a name denotes, from its own class noun, else from its
-    specification (e.g. Haymarket[extra: Metro station]), else from a settlement
-    NER type. None when it cannot be told."""
+    """The kind of place a name denotes, from the source's own format (curated arm), else from its own class noun,
+    else from its specification (e.g. Haymarket[extra: Metro station]), else from a settlement NER type. None when
+    it cannot be told."""
     streets = _street_type_nouns()
     classes = _place_class_nouns()
 
@@ -394,7 +436,7 @@ def _place_kind(name, value) -> str | None:
                 return "station" if toks[k] in ("station", "stop", "interchange", "metro") else toks[k]
         return None
 
-    kind = kind_of(name)
+    kind = _source_place_kind(name) or kind_of(name)
     if kind is None and HOnKSingleton.isReady():
         # A bare name typed by HOnK, e.g. Parmenides' "Haymarket isA metro station".
         for c in sorted(_class_typed_members().get(name, ())):

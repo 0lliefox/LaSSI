@@ -1,0 +1,24 @@
+# Police.uk map-point types other than "Street": a crime's location is anonymised to a map point, either the centre
+# of a street or a point of interest named by its type. Source: data.police.uk/about ("Type of map point" table),
+# read 16 Oct 2026. One type per line, as written there.
+Sports/Recreation Area
+Parking Area
+Park/Open Space
+Supermarket
+Petrol Station
+Pedestrian Subway
+Shopping Area
+Further/Higher Educational Building
+Police Station
+Hospital
+Nightclub
+Bus/Coach Station
+Theatre/Concert Hall
+Conference/Exhibition Centre
+Airport/Airfield
+Added by Police Force
+Ferry Terminal
+Theme/Adventure Park
+Prison
+Race Track
+Motorway Service Area

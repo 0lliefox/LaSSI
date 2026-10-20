@@ -17,11 +17,27 @@ def reference_dates(csv_path):
     return dates
 
 
+def evidence_sources(csv_path):
+    """Each case's evidence source and location label, as the record gives them (`source_name`, `location`)."""
+    out = {}
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        for row in csv.DictReader(f):
+            item_id = row['item_id']
+            if item_id:
+                out.setdefault(item_id[:-2], {'source': (row.get('source_name') or '').strip(),
+                                              'location': (row.get('location') or '').strip()})
+    return out
+
+
 def write_reference_dates(csv_path, out_dir):
-    """Write `<case>.meta.yaml` (the sidecar LaSSI reads `reference_date` from) for every case in the CSV."""
+    """Write `<case>.meta.yaml` (the sidecar LaSSI reads `reference_date`, `source` and `location` from) for every case
+    in the CSV."""
+    sources = evidence_sources(csv_path)
     for base_id, day in sorted(reference_dates(csv_path).items()):
+        meta = {'reference_date': day}
+        meta.update({k: v for k, v in sources.get(base_id, {}).items() if v})
         with open(os.path.join(out_dir, f"{base_id}.meta.yaml"), 'w', encoding='utf-8') as f:
-            yaml.dump({'reference_date': day}, f, default_flow_style=False)
+            yaml.dump(meta, f, default_flow_style=False)
 
 
 def main():
