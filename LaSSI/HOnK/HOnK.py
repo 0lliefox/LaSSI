@@ -747,7 +747,8 @@ class HOnK(RDFGraph):
             * neqTo: bidirectional antonyms.
         """
         import pickle
-        adj_cache = os.path.join(self.cache_path, "honk_oxstore.adj.v2.pkl")
+        # v44f: adds the separate formOf table (the v2 layout had no "formOf" key).
+        adj_cache = os.path.join(self.cache_path, "honk_oxstore.adj.v44f.pkl")
         # The RocksDB store directory mtime updates on every open (LOG churn),
         # so anchor freshness on `honk_oxstore.mtime` (which records the TTL
         # mtime when the store was built — invariant unless TTL changes).
@@ -762,6 +763,7 @@ class HOnK(RDFGraph):
                 self._isA_supers = blob["isA"]
                 self._partOf_wholes = blob["partOf"]
                 self._neqTo_adj = blob["neqTo"]
+                self._formOf_adj = blob["formOf"]
                 n_eq = sum(len(v) for v in self._eq_adj.values())
                 n_isA = sum(len(v) for v in self._isA_supers.values())
                 n_part = sum(len(v) for v in self._partOf_wholes.values())
@@ -770,7 +772,7 @@ class HOnK(RDFGraph):
                       f"eq={n_eq} isA={n_isA} partOf={n_part} neqTo={n_neq} "
                       f"({len(self._eq_adj)}/{len(self._isA_supers)}/{len(self._partOf_wholes)}/{len(self._neqTo_adj)} terms)")
                 return
-        except (pickle.PickleError, EOFError, OSError) as e:
+        except (pickle.PickleError, EOFError, OSError, KeyError) as e:
             print(f"[HOnK]   adjacency cache unreadable ({e!r}); rebuilding")
 
         import pyoxigraph
@@ -782,6 +784,7 @@ class HOnK(RDFGraph):
         self._isA_supers: dict[str, set[str]] = {}
         self._partOf_wholes: dict[str, set[str]] = {}
         self._neqTo_adj: dict[str, set[str]] = {}
+        self._formOf_adj: dict[str, set[str]] = {}
 
         def _preds_of_class(cls_local_name):
             cls = pyoxigraph.NamedNode(ns + cls_local_name)
@@ -875,6 +878,9 @@ class HOnK(RDFGraph):
                 for lo in o_ls:
                     self._eq_adj.setdefault(ls, set()).add(lo)
                     self._eq_adj.setdefault(lo, set()).add(ls)
+                    # Also kept on their own: a formOf link is the same word, whatever the synonymy bound does.
+                    self._formOf_adj.setdefault(ls, set()).add(lo)
+                    self._formOf_adj.setdefault(lo, set()).add(ls)
 
         n_eq = sum(len(v) for v in self._eq_adj.values())
         n_isA = sum(len(v) for v in self._isA_supers.values())
@@ -890,6 +896,7 @@ class HOnK(RDFGraph):
                     "isA": self._isA_supers,
                     "partOf": self._partOf_wholes,
                     "neqTo": self._neqTo_adj,
+                    "formOf": self._formOf_adj,
                 }, f, protocol=pickle.HIGHEST_PROTOCOL)
             print(f"[HOnK]   adjacency: cached to {adj_cache}", flush=True)
         except OSError as e:
@@ -1153,6 +1160,12 @@ class HOnK(RDFGraph):
                 if dst in self._eq_adj.get(src, ()) or src in self._eq_adj.get(dst, ()):
                     return CasusHappening.INDIFFERENT
                 return CasusHappening.EXCLUSIVES
+            # A direct formOf link ("offences" / "offence") is a variant form of the same word (HOnK's definition),
+            # so the two are equivalent whatever the synonymy bound returns: the bound exists to stop chaining
+            # through the eq graph, not to separate a word from its own inflections.
+            formOf = getattr(self, "_formOf_adj", {})
+            if dst in formOf.get(src, ()) or src in formOf.get(dst, ()):
+                return CasusHappening.EQUIVALENT
             # Direct synonymy (synsets share a member) outranks the broader
             # "synonym-of-mine matches antonym-of-theirs" path below — WordNet
             # routinely produces both verdicts when a term is polysemic, and
