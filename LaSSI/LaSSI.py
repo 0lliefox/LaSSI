@@ -69,6 +69,24 @@ def resolve_reference_date(dataset_name, explicit=None):
     return normalise_reference_date(meta.get("reference_date")) if isinstance(meta, dict) else None
 
 
+def resolve_dataset_source(dataset_name):
+    """The evidence's source and location label from the dataset's sidecar `<stem>.meta.yaml` (`source`, `location`,
+    as the record gives them), or (None, None)."""
+    import pathlib
+    try:
+        sidecar = pathlib.Path(str(dataset_name)).with_suffix("").as_posix() + ".meta.yaml"
+    except Exception:
+        return None, None
+    if not os.path.isfile(sidecar):
+        return None, None
+    import yaml
+    with open(sidecar, encoding="utf-8") as fh:
+        meta = yaml.safe_load(fh) or {}
+    if not isinstance(meta, dict):
+        return None, None
+    return meta.get("source"), meta.get("location")
+
+
 class LaSSI():
     def __init__(self, dataset_name: str,
                  fuzzyDBs: str | DatabaseConfiguration,
@@ -115,6 +133,9 @@ class LaSSI():
         # The date relative time expressions ("Monday", "this week") are resolved against (issue 158): the argument,
         # else `reference_date` in the dataset's sidecar `<stem>.meta.yaml`, else none (SUTime's run date).
         self.reference_date = resolve_reference_date(dataset_name, reference_date)
+        # The evidence's source and location label (sidecar), for source-format conventions in the curated arm.
+        from LaSSI.HOnK.TBox.SpatialReasoner import set_doc_source
+        set_doc_source(*resolve_dataset_source(dataset_name))
         tmp = f"{self.dataset_name}_clusters.txt"
         if os.path.isfile(tmp):
             self.clusters_file = tmp
