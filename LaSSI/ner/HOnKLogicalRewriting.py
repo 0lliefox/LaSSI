@@ -171,7 +171,28 @@ def has_infinitive_marker(kernel, node, initial_node, has_nmod, value, structura
         return False == value
     head = node.kernel.edgeLabel
     props = dict(getattr(head, "properties", {}) or {})
-    return DependencyRoles.is_infinitive_marker(head, "mark", props.get("mark")) == value
+    marked = DependencyRoles.is_infinitive_marker(head, "mark", props.get("mark"))
+    # A "to" clause governed by a verb that takes an infinitive complement ("expected to end", "planned to open") is
+    # that verb's complement, not a purpose; the same WordNet test the dependency normaliser applies to passives.
+    if marked and _governs_infinitive_complement(kernel):
+        marked = False
+    return marked == value
+
+
+def _governs_infinitive_complement(kernel):
+    """True when the kernel's own verb takes a clausal complement in WordNet (DependencyNormaliser's frames)."""
+    rel = getattr(kernel, "kernel", None)
+    edge = getattr(rel, "edgeLabel", None) if rel is not None else None
+    if not isinstance(edge, Singleton) or (edge.type or "").lower() != "verb":
+        return False
+    props = dict(getattr(edge, "properties", {}) or {})
+    lemma = str(props.get("lemma") or edge.named_entity or "").strip().lower()
+    if not lemma:
+        return False
+    from nltk.corpus import wordnet as wn
+    from LaSSI.phases.DependencyNormaliser import _takes_infinitive_complement
+    base = wn.morphy(lemma.replace(" ", "_"), wn.VERB) or lemma
+    return _takes_infinitive_complement(base) is True
 
 def is_orientation_noun(kernel, node, initial_node, has_nmod, value, structural_context=None):
     return _is_node_in_honk_set(node, honk.getOrientationNouns(), value)
