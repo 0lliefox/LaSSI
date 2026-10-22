@@ -71,6 +71,11 @@ class ParticipialCollapseRule(StructuralRewriteRule):
                 source = sub_kernel.source
                 if not isinstance(source, Singleton):
                     continue
+                # An existential placeholder ("[it] remains under investigation") names no entity, so it is never the
+                # outer kernel's entity; matching it by id (placeholders and derived nodes share the id -1) read
+                # "was recorded ... and remains under investigation" as a participle of "recorded" and swapped the verb.
+                if (source.type or "").lower() == "existential":
+                    continue
                 if source.id not in anchor_ids:
                     continue
                 # Guard: only collapse genuine acl-participial sub-kernels,
