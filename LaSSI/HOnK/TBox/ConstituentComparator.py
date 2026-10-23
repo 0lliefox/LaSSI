@@ -422,6 +422,16 @@ def _cop_parent_concept(v, fallback_concept):
             return spec_concept
     return fallback_concept
 
+def _is_place_in_place(fvar):
+    """A place-typed value (LOC, GPE, FAC) whose specification names the place containing it, not a facility noun."""
+    if not isinstance(fvar, FVariable) or (fvar.type or "").upper() not in _GEO_TYPES or not fvar.name:
+        return False
+    spec = fvar.specification
+    if not isinstance(spec, str) or not spec.strip():
+        return False
+    return spec.strip().split()[0].lower() not in HOnKSingleton.get().getFacilityNouns()
+
+
 def compare_variable(d, lhs, rhs, lhs_parent_concept=None, rhs_parent_concept=None):
     cp = (lhs, rhs)
     if (cp not in d) and (lhs == rhs):
@@ -460,8 +470,11 @@ def compare_variable(d, lhs, rhs, lhs_parent_concept=None, rhs_parent_concept=No
         assert isinstance(rhs, FVariable)
         lhs = _canonicalize_geo_fvar(lhs)
         rhs = _canonicalize_geo_fvar(rhs)
-        lhs = _canonicalize_proper_noun_modifier(lhs)
-        rhs = _canonicalize_proper_noun_modifier(rhs)
+        # Two places each given with the place that contains them ("Briggate, Leeds" and "Boar Lane in Leeds") are
+        # compared as those places: reading each as its container would make any two places in Leeds the same.
+        if not (_is_place_in_place(lhs) and _is_place_in_place(rhs)):
+            lhs = _canonicalize_proper_noun_modifier(lhs)
+            rhs = _canonicalize_proper_noun_modifier(rhs)
         kb = HOnKSingleton.get()
         if os.environ.get("LASSI_SYNONYMY", "capped") == "curated":
             # Curated-knowledge arm (J1): a specification that is only an event-classifier
