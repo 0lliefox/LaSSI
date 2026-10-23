@@ -260,6 +260,41 @@ def _reattach_passive_purpose(nodes) -> bool:
     return False
 
 
+# Dependents a bare-form clausal subject may have for the noun reading to be safe: modifiers a noun can also take.
+_NOMINAL_DEPENDENTS = frozenset({"obl", "nmod", "amod", "det", "compound", "punct", "case", "nummod"})
+
+
+def _nominal_bare_subject(nodes) -> bool:
+    """"Work on Mill Lane is expected to finish": the parser reads a sentence-initial "Work" as a bare verb heading a
+    clausal subject ("[to] work on Mill Lane"). English has no bare-infinitive subject ("To work ..." or "Working ..."
+    would be needed), so a clausal subject headed by a bare verb form (VB) with no "to", no subject, object or
+    auxiliary of its own, and a noun sense in WordNet is that noun: the subject becomes nominal (csubj -> nsubj,
+    csubjpass -> nsubjpass) and its oblique dependents become noun modifiers (obl -> nmod)."""
+    from nltk.corpus import wordnet as wn
+    nodes_by_id = {n.id: n for n in nodes}
+    for governor in nodes:
+        for label, target in governor.children():
+            if label not in ("csubj", "csubjpass"):
+                continue
+            head = nodes_by_id.get(target)
+            if head is None or head.ell[:1] != ["verb"] or head.prop("xpos") != "VB":
+                continue
+            if any(lbl not in _NOMINAL_DEPENDENTS for lbl, _ in head.children()):
+                continue
+            lemma = head.prop("lemma") or (head.xi[0] if head.xi else "")
+            if not wn.synsets(lemma, pos=wn.NOUN):
+                continue
+            weight = next(w for lbl, targets in governor.phi if lbl == label for w, t in targets if t == target)
+            _remove_edge(governor, label, target)
+            _add_edge(governor, {"csubj": "nsubj", "csubjpass": "nsubjpass"}[label], weight, target)
+            head.ell[0] = "noun"
+            head.properties = [(k, "NN" if k == "xpos" else v) for k, v in head.properties]
+            head.properties += [("number", "singular"), ("specification", "common")]
+            head.phi = [("nmod" if lbl == "obl" else lbl, targets) for lbl, targets in head.phi]
+            return True
+    return False
+
+
 def _remove_node(nodes, removed: GsmNode):
     """Remove `removed`, keeping node ids contiguous (the grammar engine indexes nodes by id): the node with the
     highest id takes the freed id."""
@@ -282,6 +317,7 @@ def normalise_gsm(text: str, modal_adjectives) -> str:
     for _, nodes, _ in blocks:
         while (_collapse_judgement_passive(nodes, modal_adjectives) or
                _collapse_judgement_relative(nodes, modal_adjectives) or
-               _reattach_passive_purpose(nodes)):
+               _reattach_passive_purpose(nodes) or
+               _nominal_bare_subject(nodes)):
             pass
     return serialise_gsm(blocks)
