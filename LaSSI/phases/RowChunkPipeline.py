@@ -43,6 +43,9 @@ from LaSSI.phases.StructuredSentenceLoader import (
     split_structured,
 )
 
+# An ISO 8601 date, optionally with a time: the form notice feeds give dates in.
+_ISO_DATE_TOKEN = _re.compile(r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)?")
+
 
 class RowChunkPipeline:
     """See module docstring."""
@@ -330,6 +333,36 @@ class RowChunkPipeline:
                 return " ".join(tokens)
         return text
 
+    def _restore_elided_date_preposition(self, text: str) -> str:
+        """Restore the preposition elided before a date in a telegraphic periphrasis.
+
+        ``Work expected to end 2026-04-27`` drops both the copula (restored by
+        :meth:`_inject_elided_copula`) and the ``on`` before the date. Without
+        it the parser makes the date the verb's direct object, and the date
+        never becomes the TIME of the clause. When an ISO 8601 date directly
+        follows the verb of a ``<ModalAdjective> to <verb>`` periphrasis,
+        ``on`` is restored, so the chunk reads as ``… expected to end on
+        2026-04-27``, the form whose date is already a TIME."""
+        if self.honk is None:
+            return text
+        try:
+            modals = {m.lower() for m in (self.honk.getModalAdjectives() or set())}
+        except Exception:
+            return text
+        tokens = text.split()
+
+        def _bare(tok):
+            return _re.sub(r"[^A-Za-z'\-]", "", tok).lower()
+
+        for i in range(3, len(tokens)):
+            if (_ISO_DATE_TOKEN.fullmatch(tokens[i].rstrip(".,;:"))
+                    and _bare(tokens[i - 2]) == "to"
+                    and _bare(tokens[i - 3]) in modals
+                    and tokens[i - 1].isalpha()):
+                tokens.insert(i, "on")
+                return " ".join(tokens)
+        return text
+
     def expand_rows(self, raw_rows) -> List[str]:
         """Process raw YAML rows into a flat list of sub-sentence texts.
 
@@ -351,7 +384,7 @@ class RowChunkPipeline:
             chunks = self._split_conjunctive_action(chunks)
             sub_indices: List[int] = []
             for chunk in chunks:
-                chunk.text = self._inject_elided_copula(chunk.text)
+                chunk.text = self._restore_elided_date_preposition(self._inject_elided_copula(chunk.text))
                 sub_indices.append(len(expanded))
                 expanded.append(chunk.text)
                 self.chunk_meta.append(chunk)
