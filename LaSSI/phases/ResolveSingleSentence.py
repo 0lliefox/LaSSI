@@ -87,6 +87,18 @@ def process_sentence_worker(args):
         # TODO: Might not need this hardcode but leaving for now...
         ent_type = "LOC" if ent.type == "FAC" else ent.type
 
+        # A place span that runs across a comma ("Briggate, Leeds") is a place and the larger place containing it,
+        # written as in an address; each part is its own entity, as when the tagger returns them separately.
+        if ent_type in ("GPE", "LOC") and ", " in ent.text:
+            offset = ent.start_char
+            for part in ent.text.split(", "):
+                if part.strip():
+                    multi_entity_unit.append(MeuDBEntry(
+                        part, ent_type, offset, offset + len(part),
+                        part, lev(part.lower(), part.lower()), part, "Stanza"))
+                offset += len(part) + 2
+            continue
+
         multi_entity_unit.append(MeuDBEntry(
             ent.text, ent_type, ent.start_char, ent.end_char,
             monad, lev(monad.lower(), ent.text.lower()), monad, "Stanza"))
