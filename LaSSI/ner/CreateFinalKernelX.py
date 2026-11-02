@@ -17,7 +17,7 @@ import numpy
 from LaSSI.external_services.Services import Services
 from LaSSI.ner.KernelPostProcessor import KernelPostProcessor, first_main_clause
 from LaSSI.ner.MergeSetOfSingletons import merge_properties
-from LaSSI.ner.node_functions import create_existential_node
+from LaSSI.ner.node_functions import create_existential_node, get_min_position
 from LaSSI.ner.node_functions_X import create_props_for_singleton, NodeFunctions
 from LaSSI.ner.string_functions import is_label_verb, check_semi_modal, lemmatize_verb
 from LaSSI.ner.structural_rewrites.base import is_canonical_copula
@@ -92,6 +92,9 @@ class CreateFinalKernelX:
                 ):
                     primary_root_id = node_id
                     break
+
+        # Where each root's clause starts in the sentence, read before the loop replaces the node data by its kernel
+        root_positions = {nid: get_min_position(self.G.nodes[nid]['data']) for nid in filtered_top_node_ids}
 
         # Phase 3: per-root construction loop
         used_edges = set()
@@ -169,6 +172,12 @@ class CreateFinalKernelX:
             [n_id for n_id in sorted_G if n_id in filtered_top_node_ids][-1]
             if len(filtered_top_node_ids) > 0 else sorted_G[-1]
         )
+        # Among several roots the main clause is the one that comes first in the sentence; the last in topological
+        # order is the highest node id, which follows the parser's numbering rather than the sentence.
+        positioned_roots = [nid for nid in filtered_top_node_ids
+                            if root_positions.get(nid) is not None and root_positions[nid] > -1]
+        if len(positioned_roots) > 1:
+            selected_root_id = min(positioned_roots, key=lambda nid: root_positions[nid])
         final_kernel = self.G.nodes[selected_root_id]['data']
 
         # If the highest topological node is a copula ("are"), but we have a semantic verb ("carry out")
