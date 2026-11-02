@@ -6,6 +6,8 @@ constructed sentences (fixtures/v44_constructed_modal.yaml) and hand-built formu
 import os
 import re
 import unittest
+from types import SimpleNamespace
+from unittest import mock
 
 from LaSSI.HOnK.HOnK import CasusHappening, HOnK
 from LaSSI.HOnK.TBox.ComparatorUtils import transformCaseWhenOneArgIsNegated
@@ -13,7 +15,9 @@ from LaSSI.HOnK.TBox.ConstituentComparator import _formula_core_values
 from LaSSI.phases.DependencyNormaliser import (_number_by_position, _takes_infinitive_complement, normalise_gsm,
                                                parse_gsm, serialise_gsm)
 from LaSSI.structures.DependencyRoles import is_infinitive_marker
-from LaSSI.structures.extended_fol.Formulae import FBinaryPredicate, FVariable
+from LaSSI.structures.extended_fol.Enums import PairwiseCases
+from LaSSI.structures.extended_fol.Formulae import FBinaryPredicate, FNot, FVariable
+from LaSSI.structures.extended_fol.TabularCWASemantics import TabularCWASemantics
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -132,6 +136,53 @@ class NegationTests(unittest.TestCase):
         for v in (CasusHappening.GENERAL_IMPLICATION, CasusHappening.INSTANTIATION_IMPLICATION,
                   CasusHappening.LOSE_SPEC_IMPLICATION, CasusHappening.MISSING_1ST_IMPLICATION):
             self.assertEqual(transformCaseWhenOneArgIsNegated(v), CasusHappening.INDIFFERENT, v)
+
+
+class ExclusionModelCountTests(unittest.TestCase):
+    """An exclusion is "not both" unless both atoms are un-negated states of a two-state status dimension. A negated
+    atom is ~a in the BDD, so XOR(~a, b) would assert a <=> b: "no rain" against "a shower" would make all rain a
+    shower."""
+
+    @staticmethod
+    def _semantics(x, y, x_node, y_node):
+        from dd.autoref import BDD
+        t = TabularCWASemantics.__new__(TabularCWASemantics)
+        t.minimal_constituents = SimpleNamespace(fromId={0: x, 1: y}.get)
+        t._bdd = BDD()
+        t._bdd.declare("a", "b")
+        t._bdd_for_id_cache = {0: x_node(t._bdd), 1: y_node(t._bdd)}
+        t.determine = lambda i, j: PairwiseCases.ConflictingImplication
+        return t
+
+    @staticmethod
+    def _models(t, constraints):
+        return {(m["a"], m["b"]) for m in t._bdd.pick_iter(constraints, care_vars=["a", "b"])}
+
+    def test_not_a_against_a_more_specific_b_is_not_both(self):
+        rain, shower = (FVariable(w, "noun", None, None, None, frozenset()) for w in ("rain", "shower"))
+        t = self._semantics(FNot(rain), shower, lambda d: ~d.var("a"), lambda d: d.var("b"))
+        self.assertEqual(self._models(t, t._universal_truth_bdd({0}, {1})),
+                         {(False, False), (True, False), (True, True)})  # rain without a shower is a model
+
+    def test_two_complementary_states_are_exactly_one(self):
+        found, unfound = (FVariable(w, "verb", None, None, None, frozenset()) for w in ("found", "unfound"))
+        t = self._semantics(found, unfound, lambda d: d.var("a"), lambda d: d.var("b"))
+        with mock.patch("LaSSI.HOnK.TBox.LifecycleManager._lifecycle_complementary", return_value=True):
+            self.assertEqual(self._models(t, t._universal_truth_bdd({0}, {1})), {(False, True), (True, False)})
+
+    def test_negated_atoms_are_never_complementary(self):
+        found, unfound = (FVariable(w, "verb", None, None, None, frozenset()) for w in ("found", "unfound"))
+        t = self._semantics(FNot(found), unfound, lambda d: ~d.var("a"), lambda d: d.var("b"))
+        with mock.patch("LaSSI.HOnK.TBox.LifecycleManager._lifecycle_complementary", return_value=True):
+            self.assertFalse(t._is_complementary_pair(0, 1))
+
+    def test_explanation_tables_list_the_counted_rows(self):
+        rain, shower = (FVariable(w, "noun", None, None, None, frozenset()) for w in ("rain", "shower"))
+        t = self._semantics(FNot(rain), shower, lambda d: ~d.var("a"), lambda d: d.var("b"))
+        rows = lambda df: set(map(tuple, df[["0", "1"]].values.tolist()))
+        self.assertEqual(rows(t._mutual_truth(0, 1)), {(0, 0), (0, 1), (1, 0)})
+        t = self._semantics(FNot(rain), rain, lambda d: ~d.var("a"), lambda d: d.var("a"))
+        self.assertEqual(rows(t._mutual_truth(0, 1)), {(0, 1), (1, 0)})  # a literal pair: exactly one
 
 
 def _stub_honk(eq=(), neq=(), form_of=(), mode="capped"):
