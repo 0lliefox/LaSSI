@@ -310,8 +310,8 @@ class TabularCWASemantics:
         The truth tables emitted by `_mutual_truth` map onto BDD operators as:
           Indifferent             -> TRUE  (no constraint)
           Implying(i, j)          -> ~i | j      (i => j)
-          ConflictingImplication  -> i XOR j     (complementaries: exactly one holds)
-                                  -> ~(i & j)    (contraries: not both)
+          ConflictingImplication  -> i XOR j     (two un-negated complementary states: exactly one holds)
+                                  -> ~(i & j)    (otherwise: not both)
           Equivalent(i, j)        -> ~(i XOR j)  (i <=> j)
         """
         from LaSSI.structures.extended_fol.Enums import PairwiseCases
@@ -503,20 +503,26 @@ class TabularCWASemantics:
         return transformCaseWhenOneArgIsNegated(val)
 
     def _is_complementary_pair(self, i, j) -> bool:
-        """Whether a ConflictingImplication between atoms i and j is between complementaries (exactly one holds): a
-        literal negation pair, or two states of a two-state status dimension. Other exclusions (two places, two
-        antonyms, states of a larger dimension) are contraries: both can be false."""
+        """Whether a ConflictingImplication between atoms i and j is between complementaries (exactly one holds): two
+        un-negated states of a two-state status dimension. Other exclusions (two places, two antonyms, states of a
+        larger dimension) are contraries: both can be false. A negated atom is ~a in the BDD, so a literal negation
+        pair needs no constraint, and "not A" against a B that implies A stays "not both" (B => A): XOR(~a, b) would
+        assert a <=> b."""
         from LaSSI.HOnK.TBox.LifecycleManager import _lifecycle_complementary
         x = self.minimal_constituents.fromId(i)
         y = self.minimal_constituents.fromId(j)
-        if x == FNot(y) or y == FNot(x):
-            return True
-        xa = x.arg if isinstance(x, FNot) else x
-        ya = y.arg if isinstance(y, FNot) else y
-        if isinstance(x, FNot) != isinstance(y, FNot):
-            # "not A" excluding B: A and B are the same state, or A implies B.
-            return True
-        return bool(_lifecycle_complementary(xa, ya))
+        if isinstance(x, FNot) or isinstance(y, FNot):
+            return False
+        return bool(_lifecycle_complementary(x, y))
+
+    def _exclusion_table(self, i, j):
+        """Truth table of a ConflictingImplication, with the rows the BDD counts. A negated atom has its own column
+        here, so a literal negation pair keeps exactly one, as its ~a encoding does."""
+        x = self.minimal_constituents.fromId(i)
+        y = self.minimal_constituents.fromId(j)
+        if x == FNot(y) or y == FNot(x) or self._is_complementary_pair(i, j):
+            return pandas.DataFrame({str(i): [0, 1], str(j): [1, 0]})
+        return pandas.DataFrame({str(i): [0, 0, 1], str(j): [0, 1, 0]})
 
     def explained_mutual_truth(self, i: int, j: int) -> MutualTruthExplain:
         test = self.determine(i, j)  # self.ec.determine(i, j) #self.get_mutual_truth(i, j)
@@ -535,8 +541,7 @@ class TabularCWASemantics:
             dataf = pandas.DataFrame({str(i): [0, 0, 1],
                                       str(j): [0, 1, 1]})
         elif (test == PairwiseCases.ConflictingImplication):
-            dataf = pandas.DataFrame({str(i): [0, 1],
-                                      str(j): [1, 0]})
+            dataf = self._exclusion_table(i, j)
         elif (test == PairwiseCases.Equivalent):
             dataf = pandas.DataFrame({str(i): [0, 1],
                                       str(j): [0, 1]})
@@ -560,8 +565,7 @@ class TabularCWASemantics:
             return pandas.DataFrame({str(i): [0, 0, 1],
                                      str(j): [0, 1, 1]})
         elif (test == PairwiseCases.ConflictingImplication):
-            return pandas.DataFrame({str(i): [0, 1],
-                                     str(j): [1, 0]})
+            return self._exclusion_table(i, j)
         elif (test == PairwiseCases.Equivalent):
             return pandas.DataFrame({str(i): [0, 1],
                                      str(j): [0, 1]})
