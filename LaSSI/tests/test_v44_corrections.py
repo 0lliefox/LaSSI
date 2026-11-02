@@ -10,8 +10,8 @@ import unittest
 from LaSSI.HOnK.HOnK import CasusHappening, HOnK
 from LaSSI.HOnK.TBox.ComparatorUtils import transformCaseWhenOneArgIsNegated
 from LaSSI.HOnK.TBox.ConstituentComparator import _formula_core_values
-from LaSSI.phases.DependencyNormaliser import (_takes_infinitive_complement, normalise_gsm, parse_gsm,
-                                               serialise_gsm)
+from LaSSI.phases.DependencyNormaliser import (_number_by_position, _takes_infinitive_complement, normalise_gsm,
+                                               parse_gsm, serialise_gsm)
 from LaSSI.structures.DependencyRoles import is_infinitive_marker
 from LaSSI.structures.extended_fol.Formulae import FBinaryPredicate, FVariable
 
@@ -45,13 +45,17 @@ class DependencyNormaliserTests(unittest.TestCase):
         with open(FIXTURE, encoding="utf-8") as fh:
             cls.raw = fh.read()
         cls.before = _blocks(cls.raw)
+        cls.numbered = parse_gsm(cls.raw)
+        for _, nodes, _ in cls.numbered:
+            if nodes:
+                _number_by_position(nodes)
         cls.after = _blocks(normalise_gsm(cls.raw, MODAL_ADJECTIVES))
 
     def test_round_trip_is_byte_identical(self):
         self.assertEqual(serialise_gsm(parse_gsm(self.raw)), self.raw)
 
-    def test_no_modal_adjectives_leaves_the_text_alone(self):
-        self.assertEqual(normalise_gsm(self.raw, set()), self.raw)
+    def test_no_modal_adjectives_only_numbers_in_token_order(self):
+        self.assertEqual(normalise_gsm(self.raw, set()), serialise_gsm(self.numbered))
 
     def test_judgement_passive_takes_the_shape_of_the_bare_form(self):
         # "Delays are considered unlikely." -> "Delays are unlikely." (the issuing authority is the judge)
@@ -61,7 +65,7 @@ class DependencyNormaliserTests(unittest.TestCase):
                          _edges(_by_word(self.before[BARE])["unlikely"], self.before[BARE]))
 
     def test_bare_form_is_unchanged(self):
-        self.assertEqual(serialise_gsm([("", self.after[BARE], "")]), serialise_gsm([("", self.before[BARE], "")]))
+        self.assertEqual(serialise_gsm([("", self.after[BARE], "")]), serialise_gsm([("", self.numbered[BARE][1], "")]))
 
     def test_coordinated_judgement_passive_is_collapsed(self):
         # "Roadworks are underway, and delays are considered unlikely."

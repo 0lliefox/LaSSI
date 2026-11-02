@@ -18,6 +18,9 @@ way. This step rewrites them into the shape of an equivalent construction that L
 * passive purpose: "The road is closed to allow resurfacing" -> the "to" clause is a purpose clause (advcl), not
   the complement the parser gives it, when the participle's verb takes no clausal complement in WordNet.
 
+Every graph is also numbered in token order (`_number_by_position`), so that a sentence's graph does not depend on
+the other sentences parsed with it.
+
 The file format is kept exactly: `parse_gsm` and `serialise_gsm` round-trip byte for byte."""
 
 from dataclasses import dataclass, field
@@ -308,16 +311,34 @@ def _remove_node(nodes, removed: GsmNode):
         _redirect_incoming(nodes, old_id, removed.id)
 
 
+def _number_by_position(nodes):
+    """Number a sentence's nodes in token order (id = rank of "pos") and list them, and each label's targets, in
+    that order. The parser numbers nodes from a counter shared by every sentence of a request and lists them in hash
+    order of those numbers, so the same sentence came out numbered differently depending on the sentences parsed
+    before it, and the steps after the grammar follow that order."""
+    nodes.sort(key=lambda n: int(n.prop("pos")))
+    new_ids = {n.id: str(i) for i, n in enumerate(nodes)}
+    for n in nodes:
+        n.id = new_ids[n.id]
+        n.phi = [(lbl, sorted(((w, new_ids[t]) for w, t in targets), key=lambda wt: int(wt[1])))
+                 for lbl, targets in n.phi]
+
+
 def normalise_gsm(text: str, modal_adjectives) -> str:
-    """Apply the rewrites above to every graph in a gsmDB text."""
+    """Number every graph in a gsmDB text in token order, and apply the rewrites above to it."""
     modal_adjectives = {m.lower() for m in modal_adjectives or ()}
-    if not modal_adjectives:
-        return text
     blocks = parse_gsm(text)
     for _, nodes, _ in blocks:
+        if not nodes:
+            continue
+        _number_by_position(nodes)
+        if not modal_adjectives:
+            continue
         while (_collapse_judgement_passive(nodes, modal_adjectives) or
                _collapse_judgement_relative(nodes, modal_adjectives) or
                _reattach_passive_purpose(nodes) or
                _nominal_bare_subject(nodes)):
             pass
+        # A removed node's id is taken by the highest-numbered one (_remove_node); number again in token order.
+        _number_by_position(nodes)
     return serialise_gsm(blocks)
