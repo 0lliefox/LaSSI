@@ -18,6 +18,7 @@ from LaSSI.structures.DependencyRoles import is_infinitive_marker
 from LaSSI.structures.extended_fol.Enums import PairwiseCases
 from LaSSI.structures.extended_fol.Formulae import FBinaryPredicate, FNot, FVariable
 from LaSSI.structures.extended_fol.TabularCWASemantics import TabularCWASemantics
+from LaSSI.structures.kernels.transitivity import drops_object
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -256,6 +257,17 @@ class TBoxRuleTests(unittest.TestCase):
         count = lambda name: len(re.findall(r"(?m)^\s*(?:nested\s+)?match\b", _active_rules(os.path.join(REPO, name))))
         self.assertEqual(count("query_impl.txt"), 25)
         self.assertEqual(count("query_eq.txt"), 19)
+
+
+class TransitivityTests(unittest.TestCase):
+    """The copula keeps its predicate; only an edge with no lexical verb loses its target."""
+
+    def test_the_copula_keeps_its_target(self):
+        self.assertFalse(drops_object({"be"}, {"be", "have"}))
+
+    def test_no_lexical_verb_drops_the_target(self):
+        self.assertTrue(drops_object({""}, {"be", "have"}))
+        self.assertTrue(drops_object(set(), {"be", "have"}))
 
 
 if __name__ == "__main__":

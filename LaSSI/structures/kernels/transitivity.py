@@ -27,9 +27,10 @@ def _wordnet_has_object_frame(lemma: str):
 def drops_object(lemmas, transitive_verbs) -> bool:
     """True if the kernel should drop the verb's target, i.e. treat the verb as having no direct object."""
     lemmas = {x for x in lemmas if x}
-    if not lemmas or "be" in lemmas:
-        # No lexical verb (lemmatize_verb strips auxiliaries, so "are" in "There are ..." leaves
-        # nothing) or the copula: a predicative complement, never a direct object.
+    if not lemmas:
+        # No lexical verb: lemmatize_verb strips auxiliaries, so "are" in "There are ..." leaves nothing.
+        # The copula "be" is not dropped here: it is in transitive_verbs, so its predicate stays the
+        # target (as in v4.3), and the kernel's copula rule then takes a `cop` complement if there is one.
         return True
     if transitive_verbs.intersection(lemmas):
         return False
