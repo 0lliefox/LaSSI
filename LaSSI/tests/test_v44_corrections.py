@@ -223,6 +223,26 @@ class HOnKRelationTests(unittest.TestCase):
         self.assertEqual(kb.name_eq("offences", "offence"), CasusHappening.EQUIVALENT)
         self.assertEqual(kb.name_eq("offence", "offences"), CasusHappening.EQUIVALENT)
 
+    def test_curated_equivalence_needs_a_stored_link(self):
+        kb = _stub_honk(eq=[("newcastle", "toon"), ("newcastle upon tyne", "toon")], mode="curated")
+        self.assertEqual(kb.name_eq("newcastle", "toon"), CasusHappening.EQUIVALENT)
+        self.assertEqual(kb.name_eq("newcastle", "newcastle upon tyne"), CasusHappening.INDIFFERENT)
+
+    def test_curated_antonyms_do_not_chain(self):
+        kb = _stub_honk(eq=[("get", "begin")], neq=[("begin", "end")], mode="curated")
+        self.assertEqual(kb.name_eq("begin", "end"), CasusHappening.EXCLUSIVES)
+        self.assertEqual(kb.name_eq("get", "end"), CasusHappening.INDIFFERENT)
+
+    def test_capped_arm_keeps_overlap(self):
+        kb = _stub_honk(eq=[("a", "b"), ("c", "b")])
+        self.assertEqual(kb.name_eq("a", "c"), CasusHappening.EQUIVALENT)
+
+    def test_a_named_argument_entails_an_existential_not_the_reverse(self):
+        kb = _stub_honk()
+        self.assertEqual(kb.name_eq("burst pipe", "?3"), CasusHappening.EQUIVALENT)
+        self.assertEqual(kb.name_eq("?3", "burst pipe"), CasusHappening.MISSING_1ST_IMPLICATION)
+        self.assertEqual(kb.name_eq("?3", "?4"), CasusHappening.EQUIVALENT)
+
     def test_curated_tbox_rules_read_the_curated_tables_one_hop(self):
         kb = _stub_honk(eq=[("rain", "precipitation"), ("precipitation", "downfall")], neq=[("fast", "slow")],
                         mode="curated")

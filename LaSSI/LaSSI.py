@@ -356,15 +356,31 @@ class LaSSI():
         normalised_gsm_db = os.path.join(self.catabolites, "gsmDB_normalised.txt")
         with open(self.gsmDB, "r") as f:
             gsm_text = f.read()
+        normalised = normalise_gsm(gsm_text, HOnKSingleton.get().getModalAdjectives())
         with open(normalised_gsm_db, "w") as f:
-            f.write(normalise_gsm(gsm_text, HOnKSingleton.get().getModalAdjectives()))
-        d = DatagramDB(normalised_gsm_db,
-                       self.query_file,
-                       self.catabolites_viz,
-                       full_server_output=False,
-                       isSerializationFull=True,
-                       opt_data_schema="pos\nSizeTAtt\nbegin\nSizeTAtt\nend\nSizeTAtt")
-        d.run()
+            f.write(normalised)
+        # Each sentence's graph goes through the grammar on its own: run as one database, a graph's rewriting could
+        # depend on the graphs before it, so a verdict could depend on the order of the sentences.
+        import shutil
+        graph_root = os.path.join(self.catabolites, "grammar_graphs")
+        shutil.rmtree(graph_root, ignore_errors=True)
+        for i, graph in enumerate(g for g in normalised.split("~~\n") if g.strip()):
+            graph_dir = os.path.join(graph_root, str(i))
+            os.makedirs(os.path.join(graph_dir, "viz"))
+            graph_file = os.path.join(graph_dir, "graph.txt")
+            with open(graph_file, "w") as f:
+                f.write(graph)
+            d = DatagramDB(graph_file,
+                           self.query_file,
+                           os.path.join(graph_dir, "viz"),
+                           full_server_output=False,
+                           isSerializationFull=True,
+                           opt_data_schema="pos\nSizeTAtt\nbegin\nSizeTAtt\nend\nSizeTAtt")
+            d.run()
+            result_dir = os.path.join(self.catabolites_viz, str(i))
+            shutil.rmtree(result_dir, ignore_errors=True)
+            shutil.move(os.path.join(graph_dir, "viz", "0"), result_dir)
+        shutil.rmtree(graph_root, ignore_errors=True)
         L = []
         for result_graph_file in map(lambda x: os.path.join(self.catabolites_viz, str(x), "result.json"), range(n)):
             with open(result_graph_file, "r") as f:
@@ -372,7 +388,6 @@ class LaSSI():
                 L.append(raw_json_graph)
 
         if self.web_dir is not None:
-            import shutil
             dataset_folder = os.path.join(self.web_dir, "dataset", "data")  # f"{self.web_dir}/dataset/data"
             if os.path.exists(dataset_folder):
                 shutil.rmtree(dataset_folder)
@@ -643,7 +658,8 @@ class LaSSI():
                 return row_i, row_vals, time.time() - t0
 
             from concurrent.futures import ThreadPoolExecutor, as_completed
-            max_workers = min(n, os.cpu_count() or 4, 8)
+            # The Logical path shares one dd BDD, which is not thread-safe: threads can crash it or corrupt a node.
+            max_workers = 1 if self.transformation == SentenceRepresentation.Logical else min(n, os.cpu_count() or 4, 8)
             with tqdm(total=n * n, desc="Computing similarity matrix", unit="cell") as cell_pbar:
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
                     futures = {executor.submit(_compute_row, (i, x, cell_pbar)): i

@@ -959,6 +959,19 @@ class HOnK(RDFGraph):
             if hasattr(self, "_trcl_cache"):
                 self._trcl_cache.clear()
             print(f"[HOnK]   curated isA edges: {added} from {isa_path}", flush=True)
+        # Declared place identities (raw_data/curated_place_identity.tsv), stored as eq links.
+        place_path = os.path.join(os.path.dirname(__file__), "..", "..", "raw_data", "curated_place_identity.tsv")
+        if os.path.exists(place_path):
+            added = 0
+            with open(place_path, encoding="utf-8") as fh:
+                for line in fh:
+                    if not line.strip() or line.startswith("#"):
+                        continue
+                    a, b = line.rstrip("\n").split("\t")[:2]
+                    self._eq_adj.setdefault(a, set()).add(b)
+                    self._eq_adj.setdefault(b, set()).add(a)
+                    added += 1
+            print(f"[HOnK]   curated place identities: {added} from {place_path}", flush=True)
 
     def getSynonymy(self, k):
         """Return the set of all labels equivalent to *k* (including *k* itself).
@@ -999,6 +1012,13 @@ class HOnK(RDFGraph):
         for t in synonyms:
             self._syn_cache[t] = synonyms
         return synonyms
+
+    def are_synonyms(self, a, b):
+        """Curated arm: a stored eq link between the two words. Overlapping their link sets would also accept two words
+        that merely share a neighbour. Capped arm: the classes overlap (v4.3 behaviour)."""
+        if self._synonymy_mode == "curated":
+            return a == b or b in self._eq_adj.get(a, ()) or a in self._eq_adj.get(b, ())
+        return not self.getSynonymy(a).isdisjoint(self.getSynonymy(b))
 
     def typeOf2(self, src):
         knows_query = """
@@ -1148,8 +1168,12 @@ class HOnK(RDFGraph):
             return CasusHappening.MISSING_1ST_IMPLICATION
         elif (dst is None) or len(dst) == 0:
             return CasusHappening.INDIFFERENT
-        elif (src.startswith("?") and src[1:].isdigit()) or (dst.startswith("?") and dst[1].isdigit()):
-            return CasusHappening.EQUIVALENT
+        elif (src.startswith("?") and src[1:].isdigit()) or (dst.startswith("?") and dst[1:].isdigit()):
+            # An unnamed argument is existential. A named one entails it ("the council closed the road" gives "someone
+            # closed the road"), but not the reverse: "the road is closed" does not say what closed it.
+            if dst.startswith("?") and dst[1:].isdigit():
+                return CasusHappening.EQUIVALENT
+            return CasusHappening.MISSING_1ST_IMPLICATION
         else:
             # Fallback to lower-case if exact title-case is missing from the ontology
             if src not in self._eq_adj and src not in self._isA_supers:
@@ -1183,8 +1207,12 @@ class HOnK(RDFGraph):
             # "synonym-of-mine matches antonym-of-theirs" path below — WordNet
             # routinely produces both verdicts when a term is polysemic, and
             # the same sense cannot self-contradict.
-            if not srcS.isdisjoint(dstS):
+            if self.are_synonyms(src, dst):
                 return CasusHappening.EQUIVALENT
+            # Curated arm: only the two words themselves from here on. A word's links would otherwise chain through the
+            # antonym check below (get/end via begin, which is stored as an antonym of end) and through the hierarchy.
+            if getattr(self, "_synonymy_mode", "capped") == "curated":
+                srcS, dstS = {src}, {dst}
             # Location-equivalence via class-suffix stripping. Fires when at
             # least one side sheds a HOnK-known facility / access-point /
             # route noun from its tail AND the resulting variant sets

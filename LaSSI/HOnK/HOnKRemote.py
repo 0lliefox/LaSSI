@@ -298,6 +298,9 @@ class HOnKRemote(HOnK):
     # Lazy methods: Fetch only what we need for the current term(s)
     # ------------------------------------------------------------------
 
+    def are_synonyms(self, a: str, b: str) -> bool:
+        return not self.getSynonymy(a).isdisjoint(self.getSynonymy(b))
+
     def getSynonymy(self, term: str) -> Set[str]:
         """Fetch synonyms for a single term lazily."""
         if term in self._lazy_syn:

@@ -17,6 +17,8 @@ way. This step rewrites them into the shape of an equivalent construction that L
   modifier of the noun, which `KernelPostProcessor.promote_modal_modifiers` turns into MODALITY on that noun).
 * passive purpose: "The road is closed to allow resurfacing" -> the "to" clause is a purpose clause (advcl), not
   the complement the parser gives it, when the participle's verb takes no clausal complement in WordNet.
+* causal clause: "The road is closed because a pipe burst" -> "burst" is the verb of a clause, not the noun the parser
+  gives it, since "because" without "of" takes a clause.
 
 Every graph is also numbered in token order (`_number_by_position`), so that a sentence's graph does not depend on
 the other sentences parsed with it.
@@ -298,6 +300,43 @@ def _nominal_bare_subject(nodes) -> bool:
     return False
 
 
+def _because_nominal_clause(nodes) -> bool:
+    """"The road is closed because a pipe burst": the parser reads "a pipe burst" as a noun phrase hanging from the
+    clause by "because", and the grammar then loses it. "Because" without "of" takes a clause, so an oblique noun marked
+    by "because" alone, with a compound modifier and a verb sense in WordNet, is the verb of a clause whose subject is
+    that modifier: obl -> advcl, case -> mark, compound -> nsubj, and the determiner moves to the subject."""
+    from nltk.corpus import wordnet as wn
+    nodes_by_id = {n.id: n for n in nodes}
+    for governor in nodes:
+        for label, target in governor.children():
+            head = nodes_by_id.get(target)
+            if label != "obl" or head is None or head.ell[:1] != ["noun"]:
+                continue
+            cases = [nodes_by_id[t] for _, t in head.children("case")]
+            subjects = [t for _, t in head.children("compound")]
+            word = head.xi[0].lower() if head.xi else ""
+            if len(cases) != 1 or (cases[0].xi or [""])[0].lower() != "because" or len(subjects) != 1:
+                continue
+            if not wn.synsets(word, pos=wn.VERB):
+                continue
+            weight = next(w for lbl, targets in governor.phi if lbl == label for w, t in targets if t == target)
+            _remove_edge(governor, "obl", target)
+            _add_edge(governor, "advcl", weight, target)
+            _remove_edge(head, "case", cases[0].id)
+            _add_edge(head, "mark", weight, cases[0].id)
+            _remove_edge(head, "compound", subjects[0])
+            _add_edge(head, "nsubj", weight, subjects[0])
+            for _, det in head.children("det"):
+                _remove_edge(head, "det", det)
+                _add_edge(nodes_by_id[subjects[0]], "det", weight, det)
+            head.ell[0] = "verb"
+            head.properties = [(k, "VBD" if k == "xpos" else v) for k, v in head.properties
+                               if k not in ("number", "specification")]
+            head.properties.append(("lemma", wn.morphy(word, wn.VERB) or word))
+            return True
+    return False
+
+
 def _remove_node(nodes, removed: GsmNode):
     """Remove `removed`, keeping node ids contiguous (the grammar engine indexes nodes by id): the node with the
     highest id takes the freed id."""
@@ -337,7 +376,8 @@ def normalise_gsm(text: str, modal_adjectives) -> str:
         while (_collapse_judgement_passive(nodes, modal_adjectives) or
                _collapse_judgement_relative(nodes, modal_adjectives) or
                _reattach_passive_purpose(nodes) or
-               _nominal_bare_subject(nodes)):
+               _nominal_bare_subject(nodes) or
+               _because_nominal_clause(nodes)):
             pass
         # A removed node's id is taken by the highest-numbered one (_remove_node); number again in token order.
         _number_by_position(nodes)
