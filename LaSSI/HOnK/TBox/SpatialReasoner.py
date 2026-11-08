@@ -602,7 +602,7 @@ def _facility_head_compatible(kb, fa, fb) -> 'CasusHappening':
         return CasusHappening.INDIFFERENT
     if a == b:
         return CasusHappening.EQUIVALENT
-    if not kb.getSynonymy(a).isdisjoint(kb.getSynonymy(b)):
+    if kb.are_synonyms(a, b):
         return CasusHappening.EQUIVALENT
     isA = getattr(kb, "_isA_supers", {})
     if b in isA.get(a, ()) or a in isA.get(b, ()):

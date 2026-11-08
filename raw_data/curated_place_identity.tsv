@@ -1,0 +1,5 @@
+# curated-knowledge arm of LaSSI v4.4 (LASSI_SYNONYMY=curated): name<TAB>name of the same place
+# Loaded as eq links. Stored here because name_eq reads stored links only: HOnK links both Newcastle names to "Toon"
+# but not to each other.
+Newcastle	Newcastle upon Tyne
+Newcastle-upon-Tyne	Newcastle upon Tyne
