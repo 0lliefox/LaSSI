@@ -19,6 +19,10 @@ way. This step rewrites them into the shape of an equivalent construction that L
   the complement the parser gives it, when the participle's verb takes no clausal complement in WordNet.
 * causal clause: "The road is closed because a pipe burst" -> "burst" is the verb of a clause, not the noun the parser
   gives it, since "because" without "of" takes a clause.
+* perfect read as passive: "Flooding has closed the road" -> "has" is a perfect auxiliary, not the passive one the
+  parser gives it, since the passive is formed with "be" or "get", never "have".
+* complex preposition: "The road is closed owing to flooding" -> "owing to" marks the noun as "due to" does, not the
+  verb heading an adverbial clause that the parser gives it.
 
 Every graph is also numbered in token order (`_number_by_position`), so that a sentence's graph does not depend on
 the other sentences parsed with it.
@@ -152,6 +156,25 @@ def _add_edge(node: GsmNode, label: str, weight: str, target: str):
 def _remove_edge(node: GsmNode, label: str, target: str):
     node.phi = [(lbl, [(w, t) for w, t in targets if not (lbl == label and t == target)]) for lbl, targets in node.phi]
     node.phi = [(lbl, targets) for lbl, targets in node.phi if targets]
+
+
+def _relabel_edge(node: GsmNode, old: str, new: str, target: str):
+    """Give the edge `old` -> `target` the label `new`, where the edge was, so the order of the labels is kept."""
+    weight = next(w for lbl, targets in node.phi if lbl == old for w, t in targets if t == target)
+    if any(lbl == new for lbl, _ in node.phi):
+        _remove_edge(node, old, target)
+        _add_edge(node, new, weight, target)
+        return
+    phi = []
+    for lbl, targets in node.phi:
+        if lbl == old:
+            rest = [(w, t) for w, t in targets if t != target]
+            phi.append((new, [(weight, target)]))
+            if rest:
+                phi.append((old, rest))
+        else:
+            phi.append((lbl, targets))
+    node.phi = phi
 
 
 def _redirect_incoming(nodes, old_id: str, new_id: str):
@@ -337,6 +360,57 @@ def _because_nominal_clause(nodes) -> bool:
     return False
 
 
+def _perfect_not_passive(nodes) -> bool:
+    """"Flooding has closed the road": the parser marks "has" as a passive auxiliary and "Flooding" as the passive
+    subject, so the grammar reads the road as the agent. "Have" is never a passive auxiliary (the passive is formed
+    with "be" or "get"), so an auxpass whose lemma is "have", on a verb with no "be" or "get" auxpass of its own, is a
+    perfect auxiliary: auxpass -> aux, and the verb's passive subject is its subject (nsubjpass -> nsubj,
+    csubjpass -> csubj)."""
+    nodes_by_id = {n.id: n for n in nodes}
+    for verb in nodes:
+        auxpass = [nodes_by_id[t] for _, t in verb.children("auxpass") if t in nodes_by_id]
+        have = [a for a in auxpass if (a.prop("lemma") or "").lower() == "have"]
+        if not have or len(have) != len(auxpass):
+            continue
+        for aux in have:
+            _relabel_edge(verb, "auxpass", "aux", aux.id)
+        for passive, active in (("nsubjpass", "nsubj"), ("csubjpass", "csubj")):
+            for _, subject in verb.children(passive):
+                _relabel_edge(verb, passive, active, subject)
+        return True
+    return False
+
+
+def _owing_to(nodes) -> bool:
+    """"The road is closed owing to flooding": the parser reads "owing" as a verb with "to" hanging from it, and
+    "flooding" as an adverbial clause marked by that verb, so the cause reaches the grammar in no shape it reads.
+    "Owing to" is a two-word preposition, like "due to": the noun becomes an oblique of the clause (advcl -> obl)
+    marked by both words (case "owing", case "to"), as "due to" is parsed."""
+    nodes_by_id = {n.id: n for n in nodes}
+    for governor in nodes:
+        for label, target in governor.children("advcl"):
+            head = nodes_by_id.get(target)
+            if head is None or head.ell[:1] != ["noun"]:
+                continue
+            cases = [nodes_by_id[t] for _, t in head.children("case") if t in nodes_by_id]
+            if len(cases) != 1 or (cases[0].xi or [""])[0].lower() != "owing":
+                continue
+            owing = cases[0]
+            tos = [nodes_by_id[t] for _, t in owing.children() if t in nodes_by_id]
+            if len(tos) != 1 or (tos[0].xi or [""])[0].lower() != "to":
+                continue
+            to = tos[0]
+            weight = next(w for lbl, targets in governor.phi if lbl == "advcl" for w, t in targets if t == target)
+            _relabel_edge(governor, "advcl", "obl", target)
+            owing.phi = []
+            _add_edge(head, "case", weight, to.id)
+            for node in (owing, to):
+                node.ell = ["IN"] + node.ell[1:]
+                node.properties = [(k, "IN" if k == "xpos" else v) for k, v in node.properties if k != "lemma"]
+            return True
+    return False
+
+
 def _remove_node(nodes, removed: GsmNode):
     """Remove `removed`, keeping node ids contiguous (the grammar engine indexes nodes by id): the node with the
     highest id takes the freed id."""
@@ -377,7 +451,9 @@ def normalise_gsm(text: str, modal_adjectives) -> str:
                _collapse_judgement_relative(nodes, modal_adjectives) or
                _reattach_passive_purpose(nodes) or
                _nominal_bare_subject(nodes) or
-               _because_nominal_clause(nodes)):
+               _because_nominal_clause(nodes) or
+               _perfect_not_passive(nodes) or
+               _owing_to(nodes)):
             pass
         # A removed node's id is taken by the highest-numbered one (_remove_node); number again in token order.
         _number_by_position(nodes)

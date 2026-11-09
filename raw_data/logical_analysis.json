@@ -495,7 +495,11 @@
       "premise": {
         "Preposition": [
           "due",
-          "due to"
+          "due to",
+          "because",
+          "because of",
+          "owing",
+          "owing to"
         ]
       },
       "classification": [
@@ -506,7 +510,9 @@
       "__sentence_examples": [
         "closed due to fire safety concerns",
         "delayed due to bad weather",
-        "cancelled due to illness"
+        "cancelled due to illness",
+        "closed because of flooding",
+        "closed owing to a gas leak"
       ]
     },
     {

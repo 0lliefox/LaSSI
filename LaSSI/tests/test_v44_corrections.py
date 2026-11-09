@@ -23,6 +23,7 @@ from LaSSI.structures.kernels.transitivity import drops_object
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 FIXTURE = os.path.join(HERE, "fixtures", "v44_constructed_modal.gsmDB.txt")
+CAUSAL_FIXTURE = os.path.join(HERE, "fixtures", "v44_constructed_causal.gsmDB.txt")
 MODAL_ADJECTIVES = {"unlikely", "likely", "possible", "expected"}
 
 # Sentence order in the fixture (fixtures/v44_constructed_modal.yaml).
@@ -104,6 +105,47 @@ class DependencyNormaliserTests(unittest.TestCase):
         self.assertIs(_takes_infinitive_complement("close"), False)
         for verb in ("expect", "forecast", "believe", "plan"):
             self.assertIs(_takes_infinitive_complement(verb), True, verb)
+
+
+# Sentence order in the causal fixture (fixtures/v44_constructed_causal.yaml).
+DUE_TO, BECAUSE_OF, PERFECT, OWING_TO, PAST = range(5)
+
+
+class CausalAndPerfectRewriteTests(unittest.TestCase):
+    """Parser output of five constructed sentences (fixtures/v44_constructed_causal.yaml)."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(CAUSAL_FIXTURE, encoding="utf-8") as fh:
+            raw = fh.read()
+        cls.before = _blocks(raw)
+        cls.after = _blocks(normalise_gsm(raw, MODAL_ADJECTIVES))
+
+    def _closed(self, k):
+        return _edges(_by_word(self.after[k])["closed"], self.after[k])
+
+    def test_have_is_a_perfect_auxiliary_not_a_passive_one(self):
+        # "Flooding has closed the road." The parser gives auxpass "has" and nsubjpass "Flooding".
+        self.assertIn(("auxpass", "has"), _edges(_by_word(self.before[PERFECT])["closed"], self.before[PERFECT]))
+        self.assertEqual(self._closed(PERFECT), {("nsubj", "Flooding"), ("obj", "road"), ("aux", "has"),
+                                                 ("punct", "<dot>")})
+        self.assertTrue({("nsubj", "Flooding"), ("obj", "road")} <= self._closed(PAST))
+
+    def test_a_be_passive_stays_passive(self):
+        for k in (DUE_TO, BECAUSE_OF, OWING_TO):
+            self.assertTrue({("nsubjpass", "road"), ("auxpass", "is")} <= self._closed(k), k)
+
+    def test_owing_to_marks_the_noun_as_due_to_does(self):
+        # "The road is closed owing to flooding." The parser gives advcl "flooding" with case "owing" -> "to".
+        self.assertIn(("advcl", "flooding"), _edges(_by_word(self.before[OWING_TO])["closed"], self.before[OWING_TO]))
+        self.assertEqual(self._closed(OWING_TO), self._closed(DUE_TO))
+        flooding = _by_word(self.after[OWING_TO])["flooding"]
+        self.assertEqual(_edges(flooding, self.after[OWING_TO]), {("case", "owing"), ("case", "to")})
+        self.assertEqual(_by_word(self.after[OWING_TO])["owing"].phi, [])
+
+    def test_node_ids_stay_contiguous(self):
+        for nodes in self.after:
+            self.assertEqual(sorted(int(n.id) for n in nodes), list(range(len(nodes))))
 
 
 class _Node:
