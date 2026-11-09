@@ -1,0 +1,662 @@
+id:0
+ell:
+verb
+root
+.
+xi:
+closed
+.
+properties:
+"xpos"	"VBN"
+"pos"	"4"
+"lemma"	"close"
+"end"	"18"
+"begin"	"12"
+.
+phi:
+"nsubjpass"
+	1.0	1
+;"auxpass"
+	1.0	2
+;"obl"
+	1.0	3
+;"punct"
+	1.0	4
+;.
+
+id:1
+ell:
+noun
+.
+xi:
+road
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"2"
+"specification"	"common"
+"end"	"8"
+"begin"	"4"
+.
+phi:
+"det"
+	1.0	5
+;.
+
+id:5
+ell:
+det
+.
+xi:
+The
+.
+properties:
+"xpos"	"DT"
+"pos"	"1"
+"lemma"	"the"
+"end"	"3"
+"begin"	"0"
+.
+phi:
+.
+
+id:2
+ell:
+verb
+.
+xi:
+is
+.
+properties:
+"xpos"	"VBZ"
+"pos"	"3"
+"lemma"	"be"
+"end"	"11"
+"begin"	"9"
+.
+phi:
+.
+
+id:3
+ell:
+noun
+.
+xi:
+flooding
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"7"
+"specification"	"common"
+"end"	"34"
+"begin"	"26"
+.
+phi:
+"case"
+	1.0	6
+	1.0	7
+;.
+
+id:6
+ell:
+IN
+.
+xi:
+due
+.
+properties:
+"xpos"	"IN"
+"pos"	"5"
+"end"	"22"
+"begin"	"19"
+.
+phi:
+.
+
+id:7
+ell:
+IN
+.
+xi:
+to
+.
+properties:
+"xpos"	"IN"
+"pos"	"6"
+"end"	"25"
+"begin"	"23"
+.
+phi:
+.
+
+id:4
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"8"
+"end"	"35"
+"begin"	"34"
+.
+phi:
+.
+
+~~
+id:0
+ell:
+verb
+root
+.
+xi:
+closed
+.
+properties:
+"xpos"	"VBN"
+"pos"	"4"
+"lemma"	"close"
+"end"	"18"
+"begin"	"12"
+.
+phi:
+"nsubjpass"
+	1.0	1
+;"auxpass"
+	1.0	2
+;"obl"
+	1.0	3
+;"punct"
+	1.0	4
+;.
+
+id:1
+ell:
+noun
+.
+xi:
+road
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"2"
+"specification"	"common"
+"end"	"8"
+"begin"	"4"
+.
+phi:
+"det"
+	1.0	5
+;.
+
+id:5
+ell:
+det
+.
+xi:
+The
+.
+properties:
+"xpos"	"DT"
+"pos"	"1"
+"lemma"	"the"
+"end"	"3"
+"begin"	"0"
+.
+phi:
+.
+
+id:2
+ell:
+verb
+.
+xi:
+is
+.
+properties:
+"xpos"	"VBZ"
+"pos"	"3"
+"lemma"	"be"
+"end"	"11"
+"begin"	"9"
+.
+phi:
+.
+
+id:3
+ell:
+noun
+.
+xi:
+flooding
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"7"
+"specification"	"common"
+"end"	"38"
+"begin"	"30"
+.
+phi:
+"case"
+	1.0	6
+	1.0	7
+;.
+
+id:6
+ell:
+IN
+.
+xi:
+because
+.
+properties:
+"xpos"	"IN"
+"pos"	"5"
+"end"	"26"
+"begin"	"19"
+.
+phi:
+.
+
+id:7
+ell:
+IN
+.
+xi:
+of
+.
+properties:
+"xpos"	"IN"
+"pos"	"6"
+"end"	"29"
+"begin"	"27"
+.
+phi:
+.
+
+id:4
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"8"
+"end"	"39"
+"begin"	"38"
+.
+phi:
+.
+
+~~
+id:0
+ell:
+verb
+root
+.
+xi:
+closed
+.
+properties:
+"xpos"	"VBN"
+"pos"	"3"
+"lemma"	"close"
+"end"	"19"
+"begin"	"13"
+.
+phi:
+"nsubjpass"
+	1.0	1
+;"obj"
+	1.0	2
+;"auxpass"
+	1.0	3
+;"punct"
+	1.0	4
+;.
+
+id:1
+ell:
+noun
+.
+xi:
+Flooding
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"1"
+"specification"	"common"
+"lemma"	"flooding"
+"end"	"8"
+"begin"	"0"
+.
+phi:
+.
+
+id:3
+ell:
+verb
+.
+xi:
+has
+.
+properties:
+"xpos"	"VBZ"
+"pos"	"2"
+"lemma"	"have"
+"end"	"12"
+"begin"	"9"
+.
+phi:
+.
+
+id:2
+ell:
+noun
+.
+xi:
+road
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"5"
+"specification"	"common"
+"end"	"28"
+"begin"	"24"
+.
+phi:
+"det"
+	1.0	5
+;.
+
+id:5
+ell:
+det
+.
+xi:
+the
+.
+properties:
+"xpos"	"DT"
+"pos"	"4"
+"end"	"23"
+"begin"	"20"
+.
+phi:
+.
+
+id:4
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"6"
+"end"	"29"
+"begin"	"28"
+.
+phi:
+.
+
+~~
+id:0
+ell:
+verb
+root
+.
+xi:
+closed
+.
+properties:
+"xpos"	"VBN"
+"pos"	"4"
+"lemma"	"close"
+"end"	"18"
+"begin"	"12"
+.
+phi:
+"nsubjpass"
+	1.0	1
+;"auxpass"
+	1.0	2
+;"advcl"
+	1.0	3
+;"punct"
+	1.0	4
+;.
+
+id:1
+ell:
+noun
+.
+xi:
+road
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"2"
+"specification"	"common"
+"end"	"8"
+"begin"	"4"
+.
+phi:
+"det"
+	1.0	5
+;.
+
+id:5
+ell:
+det
+.
+xi:
+The
+.
+properties:
+"xpos"	"DT"
+"pos"	"1"
+"lemma"	"the"
+"end"	"3"
+"begin"	"0"
+.
+phi:
+.
+
+id:2
+ell:
+verb
+.
+xi:
+is
+.
+properties:
+"xpos"	"VBZ"
+"pos"	"3"
+"lemma"	"be"
+"end"	"11"
+"begin"	"9"
+.
+phi:
+.
+
+id:3
+ell:
+noun
+.
+xi:
+flooding
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"7"
+"specification"	"common"
+"end"	"36"
+"begin"	"28"
+.
+phi:
+"case"
+	1.0	6
+;.
+
+id:6
+ell:
+verb
+.
+xi:
+owing
+.
+properties:
+"xpos"	"VBG"
+"pos"	"5"
+"lemma"	"owe"
+"end"	"24"
+"begin"	"19"
+.
+phi:
+"none"
+	1.0	7
+;.
+
+id:7
+ell:
+IN
+.
+xi:
+to
+.
+properties:
+"xpos"	"IN"
+"pos"	"6"
+"end"	"27"
+"begin"	"25"
+.
+phi:
+.
+
+id:4
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"8"
+"end"	"37"
+"begin"	"36"
+.
+phi:
+.
+
+~~
+id:0
+ell:
+noun
+.
+xi:
+road
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"4"
+"specification"	"common"
+"end"	"24"
+"begin"	"20"
+.
+phi:
+"det"
+	1.0	1
+;.
+
+id:1
+ell:
+det
+.
+xi:
+the
+.
+properties:
+"xpos"	"DT"
+"pos"	"3"
+"end"	"19"
+"begin"	"16"
+.
+phi:
+.
+
+id:2
+ell:
+<dot>
+.
+xi:
+<dot>
+.
+properties:
+"xpos"	"."
+"pos"	"5"
+"end"	"25"
+"begin"	"24"
+.
+phi:
+.
+
+id:3
+ell:
+verb
+root
+.
+xi:
+closed
+.
+properties:
+"xpos"	"VBD"
+"pos"	"2"
+"lemma"	"close"
+"end"	"15"
+"begin"	"9"
+.
+phi:
+"obj"
+	1.0	0
+;"punct"
+	1.0	2
+;"nsubj"
+	1.0	4
+;.
+
+id:4
+ell:
+noun
+.
+xi:
+Flooding
+.
+properties:
+"number"	"singular"
+"xpos"	"NN"
+"pos"	"1"
+"specification"	"common"
+"lemma"	"flooding"
+"end"	"8"
+"begin"	"0"
+.
+phi:
+.
+
