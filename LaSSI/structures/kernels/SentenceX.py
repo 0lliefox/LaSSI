@@ -1188,7 +1188,11 @@ def assign_kernel(G, edges, kernel, negations, nodes, root_sentence_id, found_pr
                 (
                         (
                                 (is_valid_verb(edge_label) or is_valid_verb(source)) and
-                                chosen_edge is None
+                                chosen_edge is None and
+                                # An auxiliary ("has", "will", "is", "could") is never the clause's argument: in a
+                                # subordinate clause with no object, taking the first edge made it one
+                                # ("because a pipe has burst" -> burst(?, has)). Priority 1 already skips 'aux'.
+                                edge_label.named_entity not in {'aux'}
                         ) or
                         chosen_edge is not None and chosen_edge == edge
                 )
