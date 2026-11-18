@@ -47,20 +47,40 @@ def _police_uk_map_point_types():
     return _MAP_POINT_TYPES_CACHE
 
 
-def _source_place_kind(name):
-    """Curated arm (LASSI_SYNONYMY=curated) only: the kind a source's own format gives a place name. Police.uk replaces
-    a crime's location by an anonymous map point, which is either the centre of a street, named after the street, or a
-    point of interest named only by its type ("Parking Area", "Supermarket"; data.police.uk/about). So the record's
-    location label, when it is not one of those types, names a street. None when no source convention applies."""
-    import os, re
-    if os.environ.get("LASSI_SYNONYMY", "capped") != "curated":
-        return None
-    if (_DOC_SOURCE or "").lower() != "police.uk" or not _DOC_LOCATION or not isinstance(name, str):
+# --- Police.uk "On or near X" (dev-set change after archived v4.4, agreed with the supervisor 12-14 Nov 2026) --------
+#
+# Police.uk publishes an approximate location only: each crime is moved to its nearest map point, the centre of a
+# street or a public place, and the record names that point as "On or near X" (data.police.uk, About, "Location
+# Anonymisation"). So, for a Police.uk record, "On or near X" is read as the vicinity of X, in both arms:
+#   - it fully supports "near X" (and "on or near X"), but not "on X" or "at X" (_space_relation_narrowing);
+#   - a point named only by its type ("Parking Area", "Bus/Coach Station") is never the same place as a named place
+#     (_spaces_corefer);
+#   - a different place never contradicts it, because LaSSI measures no distances (_space_mismatch_contradiction,
+#     _space_city_mismatch_contradiction).
+# This reading is specific to the source. It is not a general rule that "on X" implies "near X".
+
+
+def _police_uk_record_label():
+    """The record's map-point name ("Prince Albert Terrace" for "On or near Prince Albert Terrace") when the evidence
+    is a Police.uk record, else None."""
+    import re
+    if (_DOC_SOURCE or "").lower() != "police.uk" or not _DOC_LOCATION:
         return None
     label = re.sub(r"^\s*on\s+or\s+near\s+", "", _DOC_LOCATION, flags=re.IGNORECASE).strip()
-    if not label or label.lower() in _police_uk_map_point_types():
-        return None
-    return "street" if _name_tokens(name) == _name_tokens(label) else None
+    return label or None
+
+
+def _is_police_uk_type_label(name) -> bool:
+    """True when `name` is the record's map-point name and that name is a type of place ("Parking Area")."""
+    label = _police_uk_record_label()
+    return (label is not None and isinstance(name, str) and _name_tokens(name) == _name_tokens(label)
+            and label.lower() in _police_uk_map_point_types())
+
+
+def _is_police_uk_record_point(name) -> bool:
+    """True when `name` is the record's map-point name, whether a street or a type of place."""
+    label = _police_uk_record_label()
+    return label is not None and isinstance(name, str) and _name_tokens(name) == _name_tokens(label)
 # Spatial-relation type labels, declared once in logical_analysis.json's
 # `spatial_relations` block (where they originate as the `type: space`
 # derivation-rule properties). `movement` = displacement-or-stay labels;
@@ -208,6 +228,9 @@ def _space_near_place_names(formula):
     return names if names else None
 
 def _space_mismatch_contradiction(lhs, rhs) -> bool:
+    # A Police.uk location is approximate, so a different place never contradicts it.
+    if _police_uk_record_label() is not None:
+        return False
     # If the two SPACE descriptors corefer (e.g. one names a place as a single
     # "<Locality> <Facility>" compound and the other decomposes it into a
     # [<Facility>, <Locality>] pair), they denote the same place and cannot be
@@ -277,6 +300,9 @@ def _space_city_mismatch_contradiction(lhs, rhs) -> bool:
     # ({A} vs {A,B}) is specificity rather than contradiction, so a contradiction
     # needs a place on EACH side with no counterpart on the other, and that pair
     # must be derivably distinct (see _places_derivably_disjoint).
+    # A Police.uk location is approximate, so a different place never contradicts it.
+    if _police_uk_record_label() is not None:
+        return False
     if _space_coreference_verdict(lhs, rhs) is not None:
         return False
     lhs_places = _space_place_values(lhs, near=False)
@@ -419,9 +445,8 @@ def _class_typed_members():
 
 
 def _place_kind(name, value) -> str | None:
-    """The kind of place a name denotes, from the source's own format (curated arm), else from its own class noun,
-    else from its specification (e.g. Haymarket[extra: Metro station]), else from a settlement NER type. None when
-    it cannot be told."""
+    """The kind of place a name denotes, from its own class noun, else from its specification (e.g.
+    Haymarket[extra: Metro station]), else from a settlement NER type. None when it cannot be told."""
     streets = _street_type_nouns()
     classes = _place_class_nouns()
 
@@ -436,7 +461,7 @@ def _place_kind(name, value) -> str | None:
                 return "station" if toks[k] in ("station", "stop", "interchange", "metro") else toks[k]
         return None
 
-    kind = _source_place_kind(name) or kind_of(name)
+    kind = kind_of(name)
     if kind is None and HOnKSingleton.isReady():
         # A bare name typed by HOnK, e.g. Parmenides' "Haymarket isA metro station".
         for c in sorted(_class_typed_members().get(name, ())):
@@ -636,9 +661,10 @@ def _spaces_corefer(lhs_vals, rhs_vals, kb) -> bool:
     ontologically compatible (the compound-vs-decomposed case)."""
     for comp_vals, other_vals in ((lhs_vals, rhs_vals), (rhs_vals, lhs_vals)):
         comp_names = [v.name for v in comp_vals
-                      if v.name and _contains_class_noun(v.name)]
+                      if v.name and _contains_class_noun(v.name) and not _is_police_uk_type_label(v.name)]
         other_names = [v.name for v in other_vals if v.name]
-        other_facilities = [n for n in other_names if _contains_class_noun(n)]
+        # A Police.uk map point named by its type ("Bus/Coach Station") does not say which one it is.
+        other_facilities = [n for n in other_names if _contains_class_noun(n) and not _is_police_uk_type_label(n)]
         for cf in comp_names:
             for loc in other_names:
                 remainder = _decompose_compound(cf, loc)
@@ -718,6 +744,11 @@ def _space_relation_narrowing(lhs_formula, rhs_formula) -> bool:
     OR(stay in place, near place), while another says simply "near place".
     The values are related enough to be partial support, but LHS should not
     fully entail RHS because "on" is also allowed.
+
+    A Police.uk record's own "On or near X" is read as the vicinity of X: it
+    fully supports "near X" and "on or near X" for the same name X, and stays
+    partial for any other relation that includes being on or at X. A different
+    name, even one HOnK relates to X, gets no such reading.
     """
     for lhs_pred in _iter_predicate_atoms(lhs_formula):
         for rhs_pred in _iter_predicate_atoms(rhs_formula):
@@ -727,13 +758,21 @@ def _space_relation_narrowing(lhs_formula, rhs_formula) -> bool:
                 lhs_rel = _spatial_relation_labels_for_value(lhs_val)
                 if not lhs_rel:
                     continue
+                record_point = _is_police_uk_record_point(lhs_val.name) and lhs_rel == _ON_OR_NEAR_LABELS
                 for rhs_val in _space_geo_values(rhs_pred):
                     if not _space_values_name_compatible(lhs_val, rhs_val):
                         continue
                     rhs_rel = _spatial_relation_labels_for_value(rhs_val)
+                    if record_point and _name_tokens(rhs_val.name) == _name_tokens(lhs_val.name):
+                        if rhs_rel and rhs_rel != lhs_rel and "stay in place" in rhs_rel:
+                            return True
+                        continue
                     if rhs_rel and rhs_rel < lhs_rel:
                         return True
     return False
+
+
+_ON_OR_NEAR_LABELS = frozenset({"stay in place", "near place"})
 
 
 def _iter_predicate_atoms(formula):
