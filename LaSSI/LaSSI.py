@@ -857,6 +857,13 @@ class LaSSI():
 
     def sentence_transform(self, sentences):
         if self.transformation == SentenceRepresentation.FullText:
+            # The full-text baselines (NLI, LLM, embeddings) read each row exactly as the case file writes it (Oliver,
+            # 19 Nov 2026; evaluation plan, section 4.5). Rejoining the normalised chunks below drops colons and
+            # semicolons ("Outcome: Investigation complete; no suspect" -> "Outcome Investigation complete no
+            # suspect"), so it is used only when the original rows are not known.
+            originals = getattr(self, 'row_original_text', None)
+            if originals:
+                return list(originals)
             if hasattr(self, 'row_to_sub_indices') and any(len(s) > 1 for s in self.row_to_sub_indices):
                 return [' '.join(sentences[i] for i in sub_indices)
                         for sub_indices in self.row_to_sub_indices]

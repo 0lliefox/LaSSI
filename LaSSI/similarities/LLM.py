@@ -1,4 +1,7 @@
 import json
+import os
+import re
+import threading
 import httpx
 from openai import OpenAI
 
@@ -6,10 +9,86 @@ from openai import OpenAI
 # the openai default (600s × 3 attempts) would block runs for 30+ minutes on timeout.
 _OLLAMA_TIMEOUT = httpx.Timeout(timeout=120.0, connect=5.0)
 
+# The baselines' backend (evaluation plan, section 4.5, 19 Nov 2026), chosen by LASSI_LLM_BACKEND:
+#   "ollama" (default, unchanged): an Ollama daemon's quantised build of the model, temperature 0.1, seed 42.
+#   "hf": the model's own released weights through Hugging Face transformers, in the dtype it was released in, at a
+#         pinned revision, decoding greedily (temperature 0), with the same prompt. LASSI_LLM_HF_MODELS names a JSON
+#         file mapping each model name as LaSSI knows it ("qwen2.5:7b") to {"repo": ..., "revision": ...}. Weights are
+#         never downloaded during a run: a model missing from the local Hugging Face cache stops the run. A response
+#         that gives no score returns None (no usable output, plan section 4.6), never a default value.
+_HF_MAX_NEW_TOKENS = 512
+_HF_LOADED = {}
+_HF_LOCK = threading.Lock()
+
+
+def _llm_backend():
+    backend = os.environ.get("LASSI_LLM_BACKEND", "ollama")
+    if backend not in ("ollama", "hf"):
+        raise ValueError(f"LASSI_LLM_BACKEND={backend!r}: expected 'ollama' or 'hf'")
+    return backend
+
+
+def _hf_spec(model_name):
+    path = os.environ.get("LASSI_LLM_HF_MODELS")
+    if not path:
+        raise RuntimeError("LASSI_LLM_BACKEND=hf needs LASSI_LLM_HF_MODELS, a JSON file of {model: {repo, revision}}")
+    with open(path) as f:
+        specs = json.load(f)
+    spec = specs.get(model_name)
+    if not spec or not spec.get("repo") or not spec.get("revision"):
+        raise RuntimeError(f"{path}: no repo and pinned revision for {model_name!r}")
+    return spec
+
+
+def _hf_device():
+    import torch
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def _hf_load(model_name):
+    """(tokenizer, model, lock) for model_name, loaded once from the local cache at its pinned revision."""
+    with _HF_LOCK:
+        if model_name not in _HF_LOADED:
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+            spec = _hf_spec(model_name)
+            kw = {"revision": spec["revision"], "local_files_only": True}
+            tok = AutoTokenizer.from_pretrained(spec["repo"], **kw)
+            try:
+                model = AutoModelForCausalLM.from_pretrained(spec["repo"], torch_dtype="auto", **kw)
+            except ValueError:
+                # Multimodal releases (Gemma 4: Gemma4ForConditionalGeneration) register under image-text-to-text;
+                # only their text input is used here.
+                from transformers import AutoModelForImageTextToText
+                model = AutoModelForImageTextToText.from_pretrained(spec["repo"], torch_dtype="auto", **kw)
+            model.to(_hf_device()).eval()
+            _HF_LOADED[model_name] = (tok, model, threading.Lock())
+        return _HF_LOADED[model_name]
+
+
+def _parse_score(text):
+    """The implication_score from a response: the response itself as JSON, else the first JSON object in it that
+    carries the key. Raises ValueError when there is none."""
+    candidates = [text.strip()] + re.findall(r"\{[^{}]*\}", text, flags=re.S)
+    for c in candidates:
+        try:
+            data = json.loads(c)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict) and "implication_score" in data:
+            return {"implication_score": float(data["implication_score"]), "reasoning": data.get("reasoning", "")}
+    raise ValueError("no JSON object with 'implication_score' in the response")
+
 
 class LLMPrompt:
     def __init__(self, model_name="qwen2.5"):
         self.model_name = model_name
+        self.backend = _llm_backend()
+        if self.backend == "hf":
+            _hf_load(model_name)
         self.client = OpenAI(
             base_url="http://localhost:11434/v1",
             api_key="ollama",
@@ -39,6 +118,23 @@ class LLMPrompt:
         """Send one prompt to Ollama and return the parsed JSON dict."""
         return self._dispatch(self._build_prompt(premise, consequence))
 
+    def _dispatch_hf(self, prompt: str) -> dict:
+        """Greedy decoding is deterministic, so a failed response is not retried: it returns None as the score."""
+        import torch
+        tok, model, lock = _hf_load(self.model_name)
+        ids = tok.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True,
+                                      return_tensors="pt").to(model.device)
+        try:
+            with lock, torch.no_grad():
+                out = model.generate(ids, attention_mask=torch.ones_like(ids), do_sample=False, temperature=None,
+                                     top_p=None, top_k=None, max_new_tokens=_HF_MAX_NEW_TOKENS,
+                                     pad_token_id=tok.pad_token_id if tok.pad_token_id is not None else tok.eos_token_id)
+            text = tok.decode(out[0][ids.shape[-1]:], skip_special_tokens=True)
+            return _parse_score(text)
+        except (ValueError, TypeError) as e:
+            print(f"[LLM] No score in the response: {e}")
+            return {"implication_score": None, "reasoning": f"[parse error] {e}"}
+
     def _dispatch(self, prompt: str, _retries: int = 1) -> dict:
         """Send a fully-built prompt to Ollama and return the parsed JSON dict.
 
@@ -47,6 +143,8 @@ class LLMPrompt:
         carries a bracketed marker in `reasoning` so downstream analysis can
         count and exclude them.
         """
+        if self.backend == "hf":
+            return self._dispatch_hf(prompt)
         try:
             response = self.client.chat.completions.create(
                 model=self.model_name,
