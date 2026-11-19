@@ -1025,6 +1025,25 @@ def assign_kernel(G, edges, kernel, negations, nodes, root_sentence_id, found_pr
         lemmas = lemmatize_sentence(node.named_entity)
         return len(rejected_verbs.intersection({lemmatize_verb(x) for x in lemmas})) == 0
 
+    # A negated root verb reaches here wrapped in a one-verb NOT grouping (AssignTypeToSingleton.
+    # checkForSpecificNegation wraps any node with a `neg` child): in "Newcastle city center does not have traffic"
+    # the root is NOT(have). Read it as the verb itself, carry the negation on the kernel, and drop do-support,
+    # which carries no meaning of its own. Otherwise no selection below sees a root verb, the auxiliary "does" was
+    # taken as the verb, and the clause lost its subject, object and negation (do(?, None)). Other auxiliaries
+    # ("will", "could") stay, since they carry tense or modality. (19 Nov 2026, city-centre set.)
+    root_wrapped_neg = None
+    _root = G.nodes[root_sentence_id]['data'] if root_sentence_id in G.nodes else None
+    if (isinstance(_root, SetOfSingletons) and _root.type == Grouping.NOT and len(_root.entities) == 1
+            and isinstance(_root.entities[0], Singleton) and is_valid_verb(_root.entities[0])):
+        root_wrapped_neg = _root.entities[0]
+        nx.set_node_attributes(G, {root_sentence_id: root_wrapped_neg}, 'data')
+        for _e in list(edges):
+            _aux = G.nodes[_e[1]]['data'] if _e[1] in G.nodes else None
+            if (_e[0] == root_sentence_id and _e[3]['label'].named_entity == 'aux' and isinstance(_aux, Singleton)
+                    and (str(dict(_aux.properties).get('lemma', '')).lower() == 'do'
+                         or str(_aux.named_entity or '').lower() in {'do', 'does', 'did'})):
+                edges.remove(_e)
+
     # Priority 0: structure-2 anomaly recovery. Normally the grammar emits the
     # main verb as an edge *label* (`subject -[verb]-> object`). Occasionally it
     # leaves the (active, transitive) root verb as a *node* that carries its own
@@ -1353,6 +1372,10 @@ def assign_kernel(G, edges, kernel, negations, nodes, root_sentence_id, found_pr
             edgeLabel=None,
             isNegated=kernel.isNegated
         )
+
+    if (root_wrapped_neg is not None and kernel.edgeLabel is not None
+            and kernel.edgeLabel.id == root_wrapped_neg.id and not kernel.isNegated):
+        kernel = Relationship(source=kernel.source, target=kernel.target, edgeLabel=kernel.edgeLabel, isNegated=True)
 
     result = kernel.update_vertex(kernel.edgeLabel.update_name(
         lemmatize_verb(kernel.edgeLabel.named_entity)) if kernel.edgeLabel is not None else None, "edgeLabel")
