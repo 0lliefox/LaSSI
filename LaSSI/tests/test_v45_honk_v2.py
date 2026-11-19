@@ -197,5 +197,89 @@ class NTriplesHOnKIsLoadedInChunks(unittest.TestCase):
                 h.stop()
 
 
+class HonkTableIsStreamedFromTheGraphFile(unittest.TestCase):
+    """v4.4 built the honk table with one SPARQL query over every typed node and a dict of every label (on HOnK v2.0.0:
+    20M type and 24M label triples at once). v4.5 streams the N-Triples file and sorts on disk; each label's types
+    are the same."""
+
+    H, ID = "https://ofox.co.uk/honk#", "https://ofox.co.uk/honk/id/"
+    NODES = {  # node: (label, types)
+        "city_centre": ("city centre", ["Concept", "CountableNoun", "LocationNoun", "Noun"]),
+        "Newcastle--2641673": ("Newcastle", ["GPE"]),
+        "Newcastle--x": ("Newcastle", ["FAC"]),
+        "Newcastle": ("Newcastle", ["Noun", "ProperNoun"]),
+        "Haymarket--parmenides-locations": ("Haymarket", ["FAC"]),
+        "back--slash": ("back\\slash", ["Noun"]),
+        "run": ("run", ["Verb", "Noun", "VB"]),
+        "walk": ("walk", ["Verb", "Noun"]),
+        "untyped": ("untyped", []),
+    }
+
+    def _graph(self, tmp):
+        import os
+        lines = []
+        for node, (label, types) in self.NODES.items():
+            iri = f"<{self.ID}{node}>"
+            esc = label.replace("\\", "\\\\")
+            lines.append(f'{iri} <http://www.w3.org/2000/01/rdf-schema#label> "{esc}" .')
+            lines += [f"{iri} <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <{self.H}{t}> ." for t in types]
+        path = os.path.join(tmp, "honk.nt")
+        with open(path, "w") as f:
+            f.write("\n".join(lines) + "\n")
+        return path
+
+    @staticmethod
+    def _rows(text):
+        rows = {}
+        for line in text.splitlines()[1:]:
+            _, idx, t, types = line.split("\t")
+            assert idx == t
+            rows[idx] = types
+        return rows
+
+    def test_table_rows_without_the_store_query(self):
+        import io, os, tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            h = HOnK(os.path.join(tmp, "cache"), "u", "p", "localhost", 0, False)
+            h.start(self._graph(tmp))
+            try:
+                # v4.4's rule over the store, for comparison
+                expected = {}
+                for label, types in h.getTypedObjects().items():
+                    gen = {HOnK.most_specific_type([t]) for t in types}
+                    if len(gen) > 1:
+                        gen.discard("None")
+                    expected[label.replace("\\", "\\\\")] = gen
+                with mock.patch.object(HOnK, "getTypedObjects", side_effect=AssertionError("every typed node at once")):
+                    out = io.StringIO()
+                    h.dumpTypedObjectsToTAB(out)
+            finally:
+                h.stop()
+        rows = self._rows(out.getvalue())
+        self.assertEqual({k: set(v.split(",")) for k, v in rows.items()}, expected)
+        self.assertEqual(set(rows["Newcastle"].split(",")), {"GPE", "FAC", "noun"})
+        self.assertEqual(set(rows["city centre"].split(",")), {"LOC", "noun"})
+
+    def test_type_order_follows_v44s_table(self):
+        import os, tempfile
+        from LaSSI.HOnK import honk_table
+        with tempfile.TemporaryDirectory() as tmp:
+            graph = self._graph(tmp)
+            ref = os.path.join(tmp, "v44.tsv")
+            with open(ref, "w") as f:
+                # Haymarket's set changed (v4.4: noun,LOC; here FAC), run's set unchanged (kept as v4.4 wrote it),
+                # and {verb, noun} is most often "verb,noun" in v4.4's table.
+                f.write("run\tnoun,verb\nHaymarket\tnoun,LOC\nx1\tverb,noun\nx2\tverb,noun\nx3\tverb,noun\n"
+                        "Newcastle\tGPE,noun,LOC\n")
+            out = os.path.join(tmp, "honk.tab")
+            honk_table.write_tab(graph, out, HOnK.most_specific_type, ref)
+            with open(out) as f:
+                rows = self._rows(f.read())
+        self.assertEqual(rows["run"], "noun,verb")               # unchanged set: v4.4's string
+        self.assertEqual(rows["walk"], "verb,noun")              # not in v4.4's table: that set's commonest order
+        self.assertEqual(rows["Haymarket"], "FAC")
+        self.assertEqual(rows["Newcastle"], "GPE,FAC,noun")      # a set v4.4 never had: precedence order
+
+
 if __name__ == "__main__":
     unittest.main()

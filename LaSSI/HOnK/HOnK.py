@@ -280,6 +280,8 @@ class HOnK(RDFGraph):
     def start(self, filename=None, rules_path=None):
         if rules_path is not None:
             self._rules_json_path = rules_path
+        if filename is not None:
+            self._graph_file = filename     # dumpTypedObjectsToTAB streams the honk table from it
         use_cache = False
 
         if not self.onStorage and filename is not None:
@@ -1141,6 +1143,15 @@ class HOnK(RDFGraph):
             return d
 
     def dumpTypedObjectsToTAB(self, filename: str | io.IOBase):
+        graph_file = getattr(self, "_graph_file", None)
+        if graph_file and str(graph_file).lower().endswith(".nt") and os.path.exists(graph_file):
+            # Streamed from the N-Triples file and sorted on disk (LaSSI/HOnK/honk_table.py): the same label -> types
+            # as below, without holding every typed node of the store (HOnK v2.0.0: 20M types, 24M labels). The order
+            # of a label's types follows v4.4's table when LASSI_HONK_TYPE_ORDER names a copy of it.
+            from LaSSI.HOnK import honk_table
+            f = filename if isinstance(filename, io.IOBase) else open(str(filename), "w")
+            honk_table.write_tab(graph_file, f, self.most_specific_type, os.environ.get("LASSI_HONK_TYPE_ORDER"))
+            return f
         l = self.getTypedObjects()
         n = len(l)
         f = filename if isinstance(filename, io.IOBase) else open(str(filename), "w")
