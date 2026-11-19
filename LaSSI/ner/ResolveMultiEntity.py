@@ -227,12 +227,12 @@ def process_sentence(args):
 
                 for k, v_list in m.items():
                     for candidate, candidate_type in v_list:
-                        # Reject GPE/LOC matches when the original text starts lowercase
+                        # Reject GPE/LOC/FAC matches when the original text starts lowercase
                         # but the candidate is a proper noun (capitalised in DB) — e.g. "nice" → "Nice".
                         # Allow generic location terms whose DB entry is also lowercase (e.g. "city centre").
                         # AND when it's capitalized at the start of the sentence but we have a common noun match
                         # AND the candidate itself is not capitalized (suggesting it's not a proper noun)
-                        if candidate_type in {"GPE", "LOC"}:
+                        if candidate_type in {"GPE", "LOC", "FAC"}:
                             if not text[0].isupper() and candidate[0].isupper():
                                 continue
                             if has_noun_match and start_char == 0 and not candidate[0].isupper():

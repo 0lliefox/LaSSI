@@ -595,6 +595,10 @@ class HOnK(RDFGraph):
             return "GPE"
         elif "loc" in types:
             return "LOC"
+        elif "fac" in types:
+            # HOnK v2 types facilities (stations, buildings, streets) FAC, a place type of its own. It ranks below GPE
+            # and LOC, so FAC decides only where nothing else gives a place type (Newcastle is GPE, LOC and FAC).
+            return "FAC"
         elif "org" in types:
             return "ORG"
         elif any(map(lambda x: x == "noun" or x.endswith("noun"), types)):

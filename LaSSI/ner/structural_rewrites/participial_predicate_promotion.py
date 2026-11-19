@@ -104,7 +104,7 @@ class ParticipialPredicatePromotionRule(StructuralRewriteRule):
         for value in values:
             if not isinstance(value, Singleton):
                 continue
-            if value.type in {"GPE", "LOC", "DATE", "TIME"}:
+            if value.type in {"GPE", "LOC", "FAC", "DATE", "TIME"}:
                 continue
             props = dict(value.properties)
             amod_value = props.get("amod")

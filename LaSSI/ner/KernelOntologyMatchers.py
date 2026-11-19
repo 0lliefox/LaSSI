@@ -242,7 +242,7 @@ class KernelOntologyMatchers:
             return False
         honk = self.services.getHOnK()
         return (
-                node.type in {"GPE", "LOC"} or
+                node.type in {"GPE", "LOC", "FAC"} or
                 self.matches_honk_set(node, honk.getLocationNouns()) or
                 self.matches_honk_set(node, honk.getFacilityNouns()) or
                 self.matches_honk_set(node, honk.getRouteNouns())

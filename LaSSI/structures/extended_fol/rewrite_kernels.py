@@ -17,6 +17,7 @@ from LaSSI.ner.node_functions import create_props_for_singleton
 
 type_conversion =             {"GPE": "SPACE",
              "LOC": "SPACE",
+             "FAC": "SPACE",
              "DATE": "TIME"}
 
 from LaSSI.structures.internal_graph.EntityRelationship import NodeEntryPoint, Singleton, SetOfSingletons, Grouping
@@ -407,7 +408,7 @@ class RewriteKernels:
             return self.make_binary(dst.name, agent, prune_from_cop(src), score, new_prop)
         if rel == "have":  # TODO: generalise
             if src is not None and (
-                    src.type == "DATE" or src.type == "GPE" or src.type == "LOC" or src.type == "SPACE") and src.cop is None:  # TODO: generalise
+                    src.type == "DATE" or src.type == "GPE" or src.type == "LOC" or src.type == "FAC" or src.type == "SPACE") and src.cop is None:  # TODO: generalise
                 dstType = type_conversion.get(src.type, src.type)
                 if dstType not in prop:
                     prop[dstType] = []

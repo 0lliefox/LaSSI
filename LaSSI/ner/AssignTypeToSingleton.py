@@ -697,7 +697,7 @@ class AssignTypeToSingleton:
                     best_score = max(map(lambda y: y.confidence, self.meu_entities[item]))
 
                     # If the best_score is better than what we currently have for the Singleton
-                    if item.confidence >= best_score and item.type.upper() in {'VERB', 'PERSON', 'DATE', 'GPE', 'LOC', 'ENTITY'}:
+                    if item.confidence >= best_score and item.type.upper() in {'VERB', 'PERSON', 'DATE', 'GPE', 'LOC', 'FAC', 'ENTITY'}:
                         best_type = item.type.lower() if item.type == 'VERB' else item.type
                     else:
                         # TODO: min and max might not be correct when coming from an inherit edge
@@ -747,6 +747,8 @@ class AssignTypeToSingleton:
                                 best_type = "GPE"
                             elif "LOC" in best_types:
                                 best_type = "LOC"
+                            elif "FAC" in best_types:
+                                best_type = "FAC"
                             elif "ENTITY" in best_types:
                                 best_type = "ENTITY"
                             else:

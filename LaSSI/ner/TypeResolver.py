@@ -233,7 +233,7 @@ class TypeResolver:
             return False
         item_len = item_max - item_min
         for meu in self.meu_db_row.multi_entity_unit:
-            if str(meu.type).upper() not in {'GPE', 'LOC'}:
+            if str(meu.type).upper() not in {'GPE', 'LOC', 'FAC'}:
                 continue
             meu_len = meu.end_char - meu.start_char
             if meu_len <= item_len:
@@ -379,7 +379,7 @@ class TypeResolver:
             first_token = meu.text.split(" ", 1)[0].lower() if meu.text else ""
             is_multi_token_toponym = (
                 " " in meu.text
-                and str(meu.type).upper() in {'GPE', 'LOC'}
+                and str(meu.type).upper() in {'GPE', 'LOC', 'FAC'}
                 and meu.confidence >= 0.95
                 and first_token not in {"the", "a", "an"}
             )
@@ -528,6 +528,8 @@ class TypeResolver:
                                     best_type = "GPE"
                                 elif "LOC" in best_types:
                                     best_type = "LOC"
+                                elif "FAC" in best_types:
+                                    best_type = "FAC"
                                 elif "NOUN" in best_types or "noun" in best_types:
                                     best_type = "noun"
                                 elif "ENTITY" in best_types:
