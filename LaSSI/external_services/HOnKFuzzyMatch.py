@@ -12,12 +12,13 @@ import math
 class HOnKFuzzyMatch(object):
 
     def __init__(self, psql, nlp, parmo):
+        from LaSSI.Configuration import HONK_TABLE
         from LaSSI.external_services.utilities.FuzzyStringMatchDatabase import DBFuzzyStringMatching
         # If we have a remote parmo, use it as the matcher instead of Postgres
         if parmo is not None and hasattr(parmo, 'endpoint_url'):
             self.s = parmo
         else:
-            self.s = DBFuzzyStringMatching(psql, "honk")
+            self.s = DBFuzzyStringMatching(psql, HONK_TABLE)
         self.nlp = nlp  # StanzaService().nlp_token
         self.parmo = parmo
 

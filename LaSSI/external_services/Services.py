@@ -3,6 +3,7 @@ import tempfile
 from StanfordNLPExtractor.OldWrapper import OldWrapper
 from nltk import WordNetLemmatizer
 
+from LaSSI.Configuration import HONK_GRAPH, HONK_CACHE, HONK_TABLE
 from LaSSI.external_services.Existentials import Existentials
 from LaSSI.external_services.utilities.DatabaseConfiguration import load_db_configuration
 from LaSSI.external_services.utilities.FuzzyStringMatchDatabase import FuzzyStringMatchDatabase
@@ -40,8 +41,8 @@ class Services:
              .init(fuzzyDBs.db, fuzzyDBs.uname, fuzzyDBs.pw, fuzzyDBs.host, fuzzyDBs.port))
 
             HOnKSingleton.instance()
-            HOnKSingleton.init("cache", fuzzyDBs.uname, fuzzyDBs.pw,
-                                     fuzzyDBs.host, fuzzyDBs.port, False, "LaSSI/HOnK.ttl",
+            HOnKSingleton.init(HONK_CACHE, fuzzyDBs.uname, fuzzyDBs.pw,
+                                     fuzzyDBs.host, fuzzyDBs.port, False, HONK_GRAPH,
                                      rules_path="raw_data/logical_analysis.json")
             self.setHOnK(HOnKSingleton.get())
             return HOnKSingleton.get()
@@ -51,7 +52,7 @@ class Services:
         if self.fuzzyHOnK is None:
             # This path is hit by spawned worker processes which cannot open the
             # RocksDB store (the main process holds the exclusive write lock).
-            # The main process already built the "honk" postgres table
+            # The main process already built the HOnK postgres table (HONK_TABLE)
             # before spawning workers, so workers only need a live DB connection
             # and a parmo stub for most_specific_type (a pure string function
             # that never touches the RDF store).
@@ -62,7 +63,7 @@ class Services:
             with db.connection.cursor() as cur:
                 cur.execute(
                     "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = %s)",
-                    ("honk",),
+                    (HONK_TABLE,),
                 )
                 table_exists = cur.fetchone()[0]
 
@@ -78,7 +79,7 @@ class Services:
                 with tempfile.NamedTemporaryFile() as honk_tab:
                     with open(honk_tab.name, 'w') as f:
                         self.getHOnK().dumpTypedObjectsToTAB(f)
-                    db.create("honk", honk_tab.name,
+                    db.create(HONK_TABLE, honk_tab.name,
                               '(id integer NOT NULL, idx text, t text, type text)')
         return self.fuzzyHOnK
 

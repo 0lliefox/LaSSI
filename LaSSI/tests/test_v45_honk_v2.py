@@ -281,5 +281,24 @@ class HonkTableIsStreamedFromTheGraphFile(unittest.TestCase):
         self.assertEqual(rows["Newcastle"], "GPE,FAC,noun")      # a set v4.4 never had: precedence order
 
 
+class HOnKv2IsKeptApartFromV44(unittest.TestCase):
+    """Oliver, 16 and 18 Nov: v4.5's HOnK v2 table goes in a separate database; the shared "honk" table (DB lassi) and
+    v4.4's cache/honk_oxstore are never rebuilt. v4.4 named all three in code ("honk", "cache", "LaSSI/HOnK.ttl")."""
+
+    def test_names_are_v45s_own(self):
+        from LaSSI.Configuration import HONK_CACHE, HONK_GRAPH, HONK_TABLE
+        self.assertEqual((HONK_TABLE, HONK_CACHE, HONK_GRAPH), ("honk_v2", "cache_v45", "LaSSI/HOnK-v2-0-0.nt"))
+
+    def test_the_fuzzy_matcher_reads_the_v2_table(self):
+        from LaSSI.external_services.HOnKFuzzyMatch import HOnKFuzzyMatch
+        self.assertEqual(HOnKFuzzyMatch(None, None, None).s.tablename, "honk_v2")
+
+    def test_the_database_is_lassi_v45(self):
+        import os
+        from LaSSI.external_services.utilities.DatabaseConfiguration import load_db_configuration
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.assertEqual(load_db_configuration(os.path.join(root, "connection.yaml")).db, "lassi_v45")
+
+
 if __name__ == "__main__":
     unittest.main()

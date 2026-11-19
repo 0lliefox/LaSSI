@@ -18,7 +18,7 @@ import time
 
 import pkg_resources
 
-from LaSSI.Configuration import SentenceRepresentation
+from LaSSI.Configuration import SentenceRepresentation, HONK_GRAPH, HONK_CACHE, HONK_TABLE
 from LaSSI.external_services.Services import Services
 from LaSSI.external_services.utilities.DatabaseConfiguration import DatabaseConfiguration, load_db_configuration
 from LaSSI.external_services.utilities.FuzzyStringMatchDatabase import FuzzyStringMatchDatabase
@@ -272,8 +272,8 @@ class LaSSI():
         HOnKSingleton.instance()
         # Only call init if not already initialized (main_remote.py does this)
         if HOnKSingleton.get() is None:
-            HOnKSingleton.init("cache", fuzzyDBs.uname, fuzzyDBs.pw,
-                                     fuzzyDBs.host, fuzzyDBs.port, False, "LaSSI/HOnK.ttl",
+            HOnKSingleton.init(HONK_CACHE, fuzzyDBs.uname, fuzzyDBs.pw,
+                                     fuzzyDBs.host, fuzzyDBs.port, False, HONK_GRAPH,
                                      rules_path="raw_data/logical_analysis.json")
         
         parmo = HOnKSingleton.get()
@@ -289,12 +289,12 @@ class LaSSI():
                 print("[LaSSI] Remote ontology detected — skipping local TTL hash check and table rebuild.")
             return
 
-        honk_ttl_path = "LaSSI/HOnK.ttl"
+        honk_ttl_path = HONK_GRAPH
         if not os.path.exists(honk_ttl_path):
             print(f"[LaSSI] WARNING: {honk_ttl_path} not found. Skipping local table rebuild.")
             return
 
-        honk_hash_path = os.path.join("cache", "honk_oxstore.mtime")
+        honk_hash_path = os.path.join(HONK_CACHE, "honk_oxstore.mtime")
 
         current_honk_hash = str(os.path.getmtime(honk_ttl_path))
         stored_honk_hash = None
@@ -306,12 +306,12 @@ class LaSSI():
             with tempfile.NamedTemporaryFile() as honk_tab:
                 with open(honk_tab.name, 'w') as f:
                     self.initServices.getHOnK().dumpTypedObjectsToTAB(f)
-                FuzzyStringMatchDatabase.instance().create("honk", honk_tab.name, '(id integer NOT NULL, idx text, t text, type text)', force=True)
-            os.makedirs("cache", exist_ok=True)
+                FuzzyStringMatchDatabase.instance().create(HONK_TABLE, honk_tab.name, '(id integer NOT NULL, idx text, t text, type text)', force=True)
+            os.makedirs(HONK_CACHE, exist_ok=True)
             with open(honk_hash_path, "w") as _hf:
                 _hf.write(current_honk_hash)
         else:
-            print("HOnK.ttl unchanged — skipping honk table rebuild")
+            print(f"{HONK_GRAPH} unchanged — skipping {HONK_TABLE} table rebuild")
 
     def create_catabolites_dir(self, dataset_name, transformation=None):
         from pathlib import Path

@@ -134,6 +134,7 @@ import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 from typing import Iterable
 
+from LaSSI.Configuration import HONK_TABLE
 from LaSSI.external_services.Services import Services
 from LaSSI.external_services.utilities.FuzzyStringMatchDatabase import DBFuzzyStringMatching, FuzzyStringMatchDatabase
 from LaSSI.ner.string_functions import lemmatize_verb
@@ -195,7 +196,7 @@ def process_sentence(args):
         if services is None:
             services = Services(logger=logger_func)
 
-        s = DBFuzzyStringMatching(services.postgres, "honk")
+        s = DBFuzzyStringMatching(services.postgres, HONK_TABLE)
         parmo = services.getHOnK()
 
     sentence_results = []

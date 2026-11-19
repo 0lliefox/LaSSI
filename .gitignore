@@ -223,3 +223,7 @@ LaSSI/HOnK.ttl
 LaSSI/HOnK-cn-only.ttl
 *.bak
 qa/data/*.gz
+
+# LaSSI v4.5: HOnK v2.0.0 (a link to the release) and its cache (LaSSI/Configuration.py)
+LaSSI/HOnK-v2-0-0.nt
+/cache_v45

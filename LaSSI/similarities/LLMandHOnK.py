@@ -56,7 +56,7 @@ _ALL_SOURCES = frozenset({"honk", "lifecycle", "paraphrase"})
 # build of the ontology, for the degraded single-source grounding arm.
 _VALID_TOKENS = _ALL_SOURCES | {"conceptnet"}
 
-_HONK_TTL, _HONK_CACHE = "LaSSI/HOnK.ttl", "cache"
+from LaSSI.Configuration import HONK_GRAPH as _HONK_TTL, HONK_CACHE as _HONK_CACHE
 _CN_TTL, _CN_CACHE = "LaSSI/HOnK-cn-only.ttl", "cache_cn"
 
 # The HOnKSingleton binds one ontology per process (fixed RocksDB store per

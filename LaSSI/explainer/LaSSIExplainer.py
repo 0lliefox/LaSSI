@@ -24,9 +24,11 @@ app.layout = html.Div([
 ])
 from dataclasses import dataclass
 
+from LaSSI.Configuration import HONK_CACHE, HONK_GRAPH
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _CATABOLITES_ROOT = _PROJECT_ROOT / "catabolites"
-_HONK_CACHE_ROOT = _PROJECT_ROOT / "cache"
+_HONK_CACHE_ROOT = _PROJECT_ROOT / HONK_CACHE
 
 
 def _repo_path(path: str | os.PathLike) -> Path:
@@ -58,7 +60,7 @@ class LaSSIExplainer:
             LaSSIExplainer.fuzzyDBs = load_db_configuration(str(_repo_path(fuzzyDBs)))
             HOnKSingleton.init(str(_HONK_CACHE_ROOT), LaSSIExplainer.fuzzyDBs.uname, LaSSIExplainer.fuzzyDBs.pw,
                                      LaSSIExplainer.fuzzyDBs.host, LaSSIExplainer.fuzzyDBs.port, False,
-                                     str(_repo_path("LaSSI/HOnK.ttl")),
+                                     str(_repo_path(HONK_GRAPH)),
                                      rules_path=str(_repo_path("raw_data/logical_analysis.json")))
 
     def __init__(self, dataset_name):
