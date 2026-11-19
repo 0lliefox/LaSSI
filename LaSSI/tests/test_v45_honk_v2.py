@@ -51,5 +51,29 @@ class FacIsAPlaceTypeOfItsOwn(unittest.TestCase):
         self.assertIn("FAC", {e.type for e in found})
 
 
+class LocationNounIsALocation(unittest.TestCase):
+    """HOnK v2 types Parmenides' "city centre", "city center", "city", "station" LocationNoun, no longer LOC, so v4.4's
+    table would type them noun only (1,213 labels v4.4 typed LOC). Oliver, 19 Nov: LaSSI's type mapping reads the
+    class LocationNoun as a location."""
+
+    def test_location_noun_is_loc(self):
+        self.assertEqual(HOnK.most_specific_type(["LocationNoun"]), "LOC")
+
+    def test_city_centre_types_as_in_v44(self):
+        # "city centre" in v2: Concept, CountableNoun, LocationNoun, Noun. v4.4's table gave it noun,LOC.
+        types = ["Concept", "CountableNoun", "LocationNoun", "Noun"]
+        generalised = {HOnK.most_specific_type([t]) for t in types} - {"None"}
+        self.assertEqual(generalised, {"LOC", "noun"})
+
+    def test_only_the_class_itself(self):
+        # FacilityNoun, RouteNoun, AccessPointNoun (bridge, platform, bus station) had no LOC in v4.4 and get none.
+        for cls in ("FacilityNoun", "RouteNoun", "AccessPointNoun", "GeoSuffixNoun"):
+            self.assertEqual(HOnK.most_specific_type([cls]), "noun", cls)
+
+    def test_a_named_place_still_ranks_first(self):
+        self.assertEqual(HOnK.most_specific_type(["GPE", "LocationNoun"]), "GPE")
+        self.assertEqual(HOnK.most_specific_type(["FAC", "LocationNoun"]), "LOC")
+
+
 if __name__ == "__main__":
     unittest.main()

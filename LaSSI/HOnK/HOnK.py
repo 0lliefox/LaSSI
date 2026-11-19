@@ -593,7 +593,9 @@ class HOnK(RDFGraph):
             return "verb"
         elif "gpe" in types:
             return "GPE"
-        elif "loc" in types:
+        elif "loc" in types or "locationnoun" in types:
+            # HOnK v2 types common location nouns ("city centre", "city", "station") LocationNoun instead of LOC; LaSSI
+            # reads that class (exactly: not FacilityNoun, RouteNoun or AccessPointNoun) as a location, as it read LOC.
             return "LOC"
         elif "fac" in types:
             # HOnK v2 types facilities (stations, buildings, streets) FAC, a place type of its own. It ranks below GPE
