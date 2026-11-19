@@ -125,5 +125,39 @@ class RelationsAreReadWithTheirSubRelations(unittest.TestCase):
         self.assertEqual(self.h._getOutgoingNodesByClassInstance("player", "partOf"), {"team"})
 
 
+class AdjacencyIsBuiltWithoutHoldingTheGraph(unittest.TestCase):
+    """v4.4 built the relation adjacency by keeping every edge and every end's IRI, then scanning every rdfs:label in
+    the store; on HOnK v2 (13.7M partOf statements, 24M labels) that is several GB before the tables exist. v4.5 looks
+    each end's labels up as the edges stream; the tables are the same."""
+
+    class _NoLabelScan:
+        """A store that refuses a scan of every rdfs:label."""
+        LABEL = "http://www.w3.org/2000/01/rdf-schema#label"
+
+        def __init__(self, store):
+            self._store = store
+
+        def quads_for_pattern(self, s, p, o, g=None):
+            if s is None and p is not None and p.value == self.LABEL:
+                raise AssertionError("scanned every rdfs:label")
+            return self._store.quads_for_pattern(s, p, o, g)
+
+        def __getattr__(self, name):
+            return getattr(self._store, name)
+
+    def test_tables_built_without_a_label_scan(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            h = _v2_graph(tmp)
+            try:
+                h.graph = self._NoLabelScan(h.graph)
+                h._build_relation_adjacency()
+                self.assertEqual(h._neqTo_adj, {"fast": {"slow"}, "slow": {"fast"}})
+                self.assertEqual(h._partOf_wholes, {"player": {"team"}})
+            finally:
+                h.graph = h.graph._store
+                h.stop()
+
+
 if __name__ == "__main__":
     unittest.main()

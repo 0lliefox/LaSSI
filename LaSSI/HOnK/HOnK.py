@@ -745,9 +745,9 @@ class HOnK(RDFGraph):
         next to the RocksDB store as `relation_adjacency.pkl` — first build
         is ~120s on the full 22.4M-triple HOnK; subsequent loads are <1s.
 
-        Uses `quads_for_pattern` index lookups for edge enumeration and a
-        single full-scan over the rdfs:label triples for URI→label resolution
-        (much faster than ~1M individual round-trips).
+        Uses `quads_for_pattern` index lookups for edge enumeration and looks
+        up each edge end's labels as the edges stream (a bounded cache keeps
+        the frequent ends), so memory is the tables built, not the graph.
 
         Edge directions follow the original SPARQL templates exactly:
             * eq: bidirectional — `(s, eq_pred, o)` adds `label(s) ↔ label(o)`.
@@ -822,73 +822,54 @@ class HOnK(RDFGraph):
         neqTo_preds = _preds_of_class("neqTo")
         formOf_preds = _preds_of_class("formOf")
 
-        # Pass 1: collect raw edge tuples (URIs) and the URIs we need labels for.
-        eq_edges, isA_edges, partOf_edges, neqTo_edges, formOf_edges = [], [], [], [], []
-        needed_uris: set = set()
+        # The edges stream from the store and each end's labels are looked up as they come (a bounded cache keeps
+        # the frequent ends, such as GeoNames' regions; equal labels share one string), so the build holds only the
+        # tables it makes. Until v4.5 every edge and every end's IRI were kept, then every rdfs:label was scanned:
+        # on HOnK v2 (13.7M partOf statements, 24M labels) that is several GB before the tables exist.
+        import sys
+        label_cache: dict = {}
+        lookups = [0]
 
-        def _collect(pred_list, dest):
+        def _labels(node):
+            labels = label_cache.get(node)
+            if labels is None:
+                labels = tuple(sys.intern(q.object.value)
+                               for q in self.graph.quads_for_pattern(node, rdfs_label, None, None)
+                               if isinstance(q.object, pyoxigraph.Literal))
+                lookups[0] += 1
+                if len(label_cache) >= 1_000_000:
+                    label_cache.clear()
+                label_cache[node] = labels
+            return labels
+
+        def _edges(pred_list, name):
+            """(labels of s, labels of o) for each `s p o` between two IRIs, p one of pred_list; both labelled."""
+            _t, n = time.time(), 0
             for p in pred_list:
                 for q in self.graph.quads_for_pattern(None, p, None, None):
                     s, o = q.subject, q.object
                     if isinstance(s, pyoxigraph.NamedNode) and isinstance(o, pyoxigraph.NamedNode):
-                        dest.append((s.value, o.value))
-                        needed_uris.add(s.value)
-                        needed_uris.add(o.value)
-        _t = time.time(); _collect(eq_preds, eq_edges)
-        print(f"[HOnK]   adjacency: collected {len(eq_edges)} eq edges in {time.time()-_t:.1f}s", flush=True)
-        _t = time.time(); _collect(isA_preds, isA_edges)
-        print(f"[HOnK]   adjacency: collected {len(isA_edges)} isA edges in {time.time()-_t:.1f}s", flush=True)
-        _t = time.time(); _collect(partOf_preds, partOf_edges)
-        print(f"[HOnK]   adjacency: collected {len(partOf_edges)} partOf edges in {time.time()-_t:.1f}s", flush=True)
-        _t = time.time(); _collect(neqTo_preds, neqTo_edges)
-        print(f"[HOnK]   adjacency: collected {len(neqTo_edges)} neqTo edges in {time.time()-_t:.1f}s", flush=True)
-        _t = time.time(); _collect(formOf_preds, formOf_edges)
-        print(f"[HOnK]   adjacency: collected {len(formOf_edges)} formOf edges in {time.time()-_t:.1f}s", flush=True)
+                        n += 1
+                        s_ls, o_ls = _labels(s), _labels(o)
+                        if s_ls and o_ls:
+                            yield s_ls, o_ls
+            print(f"[HOnK]   adjacency: collected {n} {name} edges in {time.time()-_t:.1f}s", flush=True)
 
-        # Pass 2: single full-scan over rdfs:label triples — ~50s for the
-        # 10M-row label table, vs ~150s for ~1M individual URI round-trips.
-        _t = time.time()
-        uri_to_labels: dict[str, list[str]] = {}
-        for q in self.graph.quads_for_pattern(None, rdfs_label, None, None):
-            s = q.subject
-            if not isinstance(s, pyoxigraph.NamedNode):
-                continue
-            uri = s.value
-            if uri not in needed_uris:
-                continue
-            obj = q.object
-            if isinstance(obj, pyoxigraph.Literal):
-                uri_to_labels.setdefault(uri, []).append(obj.value)
-        print(f"[HOnK]   adjacency: resolved {len(uri_to_labels)} URI labels in {time.time()-_t:.1f}s", flush=True)
-
-        # Pass 3: build label-keyed adjacency dicts (cartesian over each URI's
-        # labels — almost always 1×1, but correct for multi-labelled URIs).
-        for s_uri, o_uri in eq_edges:
-            s_ls = uri_to_labels.get(s_uri); o_ls = uri_to_labels.get(o_uri)
-            if not s_ls or not o_ls:
-                continue
+        # Label-keyed tables, cartesian over each end's labels (almost always 1x1, but correct for multi-labelled ends).
+        for s_ls, o_ls in _edges(eq_preds, "eq"):
             for ls in s_ls:
                 for lo in o_ls:
                     self._eq_adj.setdefault(ls, set()).add(lo)
                     self._eq_adj.setdefault(lo, set()).add(ls)
-        for s_uri, o_uri in isA_edges:
-            s_ls = uri_to_labels.get(s_uri); o_ls = uri_to_labels.get(o_uri)
-            if not s_ls or not o_ls:
-                continue
+        for s_ls, o_ls in _edges(isA_preds, "isA"):
             for ls in s_ls:
                 for lo in o_ls:
                     self._isA_supers.setdefault(lo, set()).add(ls)
-        for s_uri, o_uri in partOf_edges:
-            s_ls = uri_to_labels.get(s_uri); o_ls = uri_to_labels.get(o_uri)
-            if not s_ls or not o_ls:
-                continue
+        for s_ls, o_ls in _edges(partOf_preds, "partOf"):
             for ls in s_ls:
                 for lo in o_ls:
                     self._partOf_wholes.setdefault(ls, set()).add(lo)
-        for s_uri, o_uri in neqTo_edges:
-            s_ls = uri_to_labels.get(s_uri); o_ls = uri_to_labels.get(o_uri)
-            if not s_ls or not o_ls:
-                continue
+        for s_ls, o_ls in _edges(neqTo_preds, "neqTo"):
             for ls in s_ls:
                 for lo in o_ls:
                     self._neqTo_adj.setdefault(ls, set()).add(lo)
@@ -896,10 +877,7 @@ class HOnK(RDFGraph):
         # formOf (inflectional/morphological forms, e.g. offences → offence) are
         # treated as bidirectional equivalences so that plural/singular and
         # spelling-variant surface forms match the same ontology concept.
-        for s_uri, o_uri in formOf_edges:
-            s_ls = uri_to_labels.get(s_uri); o_ls = uri_to_labels.get(o_uri)
-            if not s_ls or not o_ls:
-                continue
+        for s_ls, o_ls in _edges(formOf_preds, "formOf"):
             for ls in s_ls:
                 for lo in o_ls:
                     self._eq_adj.setdefault(ls, set()).add(lo)
@@ -907,6 +885,7 @@ class HOnK(RDFGraph):
                     # Also kept on their own: a formOf link is the same word, whatever the synonymy bound does.
                     self._formOf_adj.setdefault(ls, set()).add(lo)
                     self._formOf_adj.setdefault(lo, set()).add(ls)
+        print(f"[HOnK]   adjacency: resolved the labels of {lookups[0]} edge ends", flush=True)
 
         n_eq = sum(len(v) for v in self._eq_adj.values())
         n_isA = sum(len(v) for v in self._isA_supers.values())
