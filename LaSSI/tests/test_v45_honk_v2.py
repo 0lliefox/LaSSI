@@ -159,5 +159,43 @@ class AdjacencyIsBuiltWithoutHoldingTheGraph(unittest.TestCase):
                 h.stop()
 
 
+class NTriplesHOnKIsLoadedInChunks(unittest.TestCase):
+    """v4.4 loaded HOnK with Store.load, which holds the whole file in memory (on a tenth of HOnK v2.0.0: 8.5 GB; the
+    release is 15.4 GB of N-Triples). v4.5 bulk-loads an N-Triples HOnK a chunk of lines at a time."""
+
+    LINES = [
+        '_:r <https://ofox.co.uk/honk/logic#logicalConstructName> "space" .',
+        '<https://ofox.co.uk/honk/id/fast> <http://www.w3.org/2000/01/rdf-schema#label> "fast" .',
+        '<https://ofox.co.uk/honk/id/slow> <http://www.w3.org/2000/01/rdf-schema#label> "slow" .',
+        '<https://ofox.co.uk/honk#oppositeOf1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://ofox.co.uk/honk#oppositeOf> .',
+        '<https://ofox.co.uk/honk/id/fast> <https://ofox.co.uk/honk#oppositeOf1> <https://ofox.co.uk/honk/id/slow> .',
+        '_:r <https://ofox.co.uk/honk/logic#logicalConstructProperty> "near place" .',
+        '<https://ofox.co.uk/honk#rule> <https://ofox.co.uk/honk/logic#classification> _:r .',
+    ]
+
+    def test_store_is_built_without_store_load(self):
+        import os, tempfile
+        import pyoxigraph as ox
+        from FunctionalMatch.rdf.RDFGraph import RDFGraph
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "honk.nt")
+            with open(path, "w") as f:
+                f.write("\n".join(self.LINES) + "\n")
+            h = HOnK(os.path.join(tmp, "cache"), "u", "p", "localhost", 0, False)
+            # Store.load (RDFGraph.parse) must not be used; chunks of 2 lines split the blank node's triples apart.
+            with mock.patch.object(RDFGraph, "parse", side_effect=AssertionError("Store.load holds the whole file")), \
+                    mock.patch.object(HOnK, "_BULK_LOAD_LINES", 2):
+                h.start(path)
+            try:
+                self.assertEqual(len(h.graph), len(self.LINES))
+                blank = {q.subject for q in h.graph if isinstance(q.subject, ox.BlankNode)}
+                self.assertEqual(len(blank), 1)                      # one blank node, as in the file
+                (node,) = blank
+                self.assertEqual(len(list(h.graph.quads_for_pattern(None, None, node, None))), 1)
+                self.assertTrue(os.path.exists(os.path.join(tmp, "cache", "honk_oxstore.mtime")))
+            finally:
+                h.stop()
+
+
 if __name__ == "__main__":
     unittest.main()

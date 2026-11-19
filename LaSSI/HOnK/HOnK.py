@@ -320,7 +320,7 @@ class HOnK(RDFGraph):
                 if not use_cache:
                     print(f"[HOnK] Parsing TTL (first-time, result will be cached): {filename}")
                     t0 = time.time()
-                    self.parse(filename)
+                    self._load_graph_file(filename)
                     print(f"[HOnK] TTL parsed in {time.time() - t0:.1f}s — compacting store...")
                     self.graph.optimize()
                     print(f"[HOnK] Store compacted in {time.time() - t0:.1f}s total.")
@@ -344,7 +344,7 @@ class HOnK(RDFGraph):
                     if result:
                         print(f"[HOnK] Parsing TTL (cache rebuild): {filename}")
                         t0 = time.time()
-                        self.parse(filename)
+                        self._load_graph_file(filename)
                         print(f"[HOnK] TTL parsed in {time.time() - t0:.1f}s — compacting store...")
                         self.graph.optimize()
                         print(f"[HOnK] Store compacted in {time.time() - t0:.1f}s total.")
@@ -354,6 +354,34 @@ class HOnK(RDFGraph):
                 else:
                     raise
         return result
+
+    # Lines per bulk_load call for an N-Triples HOnK. Memory is bounded by the chunk, not the file: on HOnK v2.0.0
+    # (116M triples, 15.4 GB) 2M-line chunks peaked at 3.95 GB, where Store.load of a tenth of the file took 8.5 GB.
+    _BULK_LOAD_LINES = 2_000_000
+
+    def _load_graph_file(self, filename, lines_per_chunk=None):
+        """Load HOnK's graph file into the store. N-Triples (.nt) is bulk-loaded a chunk of lines at a time:
+        Store.load holds the whole file in memory. Lines holding a blank node are set aside and loaded together last,
+        since a blank node's label is scoped to one load (HOnK v2 has 145, all logical-rule nodes). Other formats are
+        parsed as before."""
+        if not str(filename).lower().endswith(".nt"):
+            return self.parse(filename)
+        import pyoxigraph
+        from itertools import islice
+        per = lines_per_chunk or self._BULK_LOAD_LINES
+        blank = []
+        with open(filename, "rb") as fh:
+            while True:
+                lines = list(islice(fh, per))
+                if not lines:
+                    break
+                chunk = [line for line in lines if b"_:" not in line]
+                blank.extend(line for line in lines if b"_:" in line)
+                if chunk:
+                    self.graph.bulk_load(input=b"".join(chunk), format=pyoxigraph.RdfFormat.N_TRIPLES)
+        if blank:
+            self.graph.bulk_load(input=b"".join(blank), format=pyoxigraph.RdfFormat.N_TRIPLES)
+        self.graph.flush()
 
     def configure_logical_rules_path(self, rules_path):
         self._rules_json_path = rules_path
