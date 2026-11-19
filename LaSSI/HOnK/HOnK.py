@@ -677,11 +677,14 @@ class HOnK(RDFGraph):
             return {x["x"] for x in ye}
 
     def _getOutgoingNodesByClassInstance(self, srcLabel, classType):
-        """Find outgoing nodes where the predicate is an instance of classType (numbered variant pattern)."""
+        """Find outgoing nodes where the predicate is an instance of classType (numbered variant pattern), or of one of
+        its sub-relations: HOnK v2 states antonyms under oppositeOf and distinctFrom, sub-properties of neqTo, and
+        member meronyms under memberOf, a sub-property of partOf."""
         knows_query = """
          SELECT DISTINCT ?dst_label
          WHERE {
-             ?pred_inst a ?class_uri .
+             ?relation rdfs:subPropertyOf* ?class_uri .
+             ?pred_inst a ?relation .
              ?src ?pred_inst ?dst .
              ?src rdfs:label ?src_label .
              ?dst rdfs:label ?dst_label .
@@ -758,7 +761,8 @@ class HOnK(RDFGraph):
         """
         import pickle
         # v44f: adds the separate formOf table (the v2 layout had no "formOf" key).
-        adj_cache = os.path.join(self.cache_path, "honk_oxstore.adj.v44f.pkl")
+        # v45a: each relation is read with its sub-relations (HOnK v2's rdfs:subPropertyOf).
+        adj_cache = os.path.join(self.cache_path, "honk_oxstore.adj.v45a.pkl")
         # The RocksDB store directory mtime updates on every open (LOG churn),
         # so anchor freshness on `honk_oxstore.mtime` (which records the TTL
         # mtime when the store was built — invariant unless TTL changes).
@@ -796,9 +800,21 @@ class HOnK(RDFGraph):
         self._neqTo_adj: dict[str, set[str]] = {}
         self._formOf_adj: dict[str, set[str]] = {}
 
+        rdfs_subproperty = pyoxigraph.NamedNode("http://www.w3.org/2000/01/rdf-schema#subPropertyOf")
+
         def _preds_of_class(cls_local_name):
-            cls = pyoxigraph.NamedNode(ns + cls_local_name)
-            return [q.subject for q in self.graph.quads_for_pattern(None, rdf_type, cls, None)]
+            # The statement instances of the relation and of its sub-relations (rdfs:subPropertyOf, transitively):
+            # HOnK v2 states antonyms under oppositeOf and distinctFrom (sub-properties of neqTo, which has no
+            # statement of its own) and member meronyms under memberOf (a sub-property of partOf). A graph without
+            # rdfs:subPropertyOf (HOnK v1) gives the relation's own instances, as before.
+            relations, todo = [pyoxigraph.NamedNode(ns + cls_local_name)], [pyoxigraph.NamedNode(ns + cls_local_name)]
+            while todo:
+                for q in self.graph.quads_for_pattern(None, rdfs_subproperty, todo.pop(), None):
+                    if q.subject not in relations:
+                        relations.append(q.subject)
+                        todo.append(q.subject)
+            return list(dict.fromkeys(q.subject for r in relations
+                                      for q in self.graph.quads_for_pattern(None, rdf_type, r, None)))
 
         eq_preds = _preds_of_class("eq")
         isA_preds = _preds_of_class("isA")
