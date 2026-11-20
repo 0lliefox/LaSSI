@@ -75,54 +75,23 @@ class LocationNounIsALocation(unittest.TestCase):
         self.assertEqual(HOnK.most_specific_type(["FAC", "LocationNoun"]), "LOC")
 
 
-def _v2_graph(cache_dir):
-    """A HOnK in memory holding HOnK v2's shape for two statements: "fast oppositeOf1 slow" and "player memberOf1 team",
-    each instance a sub-property (and instance) of its relation, oppositeOf a sub-property of neqTo and memberOf of
-    partOf, as the release declares them; neqTo and partOf have no statement of their own."""
+def _v1_graph(cache_dir):
+    """A HOnK in memory holding HOnK v1's shape for two statements: "fast neqTo1 slow" and "player partOf1 team", each
+    numbered relation an instance of its relation (neqTo1 a neqTo), as HOnK v1.5.0 states them."""
     import pyoxigraph as ox
     h = HOnK(cache_dir, "u", "p", "localhost", 0, False)
     h.start()
-    H, ID = "https://ofox.co.uk/honk#", "https://ofox.co.uk/honk/id/"
+    H = "https://ofox.co.uk/honk#"
     RDF_TYPE = ox.NamedNode("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
     LABEL = ox.NamedNode("http://www.w3.org/2000/01/rdf-schema#label")
-    SUB = ox.NamedNode("http://www.w3.org/2000/01/rdf-schema#subPropertyOf")
     n = lambda local: ox.NamedNode(H + local)
     add = lambda s, p, o: h.graph.add(ox.Quad(s, p, o))
-    add(n("oppositeOf"), SUB, n("neqTo"))
-    add(n("memberOf"), SUB, n("partOf"))
-    for inst, rel, s, o in (("oppositeOf1", "oppositeOf", "fast", "slow"), ("memberOf1", "memberOf", "player", "team")):
+    for inst, rel, s, o in (("neqTo1", "neqTo", "fast", "slow"), ("partOf1", "partOf", "player", "team")):
         add(n(inst), RDF_TYPE, n(rel))
-        add(n(inst), SUB, n(rel))
-        add(ox.NamedNode(ID + s), n(inst), ox.NamedNode(ID + o))
+        add(n(s), n(inst), n(o))
         for w in (s, o):
-            add(ox.NamedNode(ID + w), LABEL, ox.Literal(w))
+            add(n(w), LABEL, ox.Literal(w))
     return h
-
-
-class RelationsAreReadWithTheirSubRelations(unittest.TestCase):
-    """HOnK v2 has no statement under honk:neqTo itself (antonyms are oppositeOf, 75,285, and distinctFrom, 3,647) and
-    puts member meronyms under memberOf (72,089), a sub-property of partOf. v4.4 read only instances typed exactly the
-    relation, so on v2 it had no antonyms at all. Oliver, 19 Nov: read both through rdfs:subPropertyOf."""
-
-    def setUp(self):
-        import tempfile
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        self.h = _v2_graph(self.tmp.name)
-        self.addCleanup(self.h.stop)
-
-    def test_antonyms_reach_the_adjacency(self):
-        self.h._build_relation_adjacency()
-        self.assertEqual(self.h._neqTo_adj, {"fast": {"slow"}, "slow": {"fast"}})
-
-    def test_member_meronyms_reach_partof(self):
-        self.h._build_relation_adjacency()
-        self.assertEqual(self.h._partOf_wholes, {"player": {"team"}})
-
-    def test_tbox_queries_see_sub_relations(self):
-        # The TBox rules ask getOutgoingNodes(x, "neqTo") / (x, "partOf"); HOnK answers through the instance query.
-        self.assertEqual(self.h._getOutgoingNodesByClassInstance("fast", "neqTo"), {"slow"})
-        self.assertEqual(self.h._getOutgoingNodesByClassInstance("player", "partOf"), {"team"})
 
 
 class AdjacencyIsBuiltWithoutHoldingTheGraph(unittest.TestCase):
@@ -148,7 +117,7 @@ class AdjacencyIsBuiltWithoutHoldingTheGraph(unittest.TestCase):
     def test_tables_built_without_a_label_scan(self):
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
-            h = _v2_graph(tmp)
+            h = _v1_graph(tmp)
             try:
                 h.graph = self._NoLabelScan(h.graph)
                 h._build_relation_adjacency()
