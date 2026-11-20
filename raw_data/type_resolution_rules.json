@@ -18,6 +18,6 @@
     "JJ", "IN", "NEG"
   ],
   "meu_types": [
-    "VERB", "PERSON", "DATE", "GPE", "LOC", "ENTITY"
+    "VERB", "PERSON", "DATE", "GPE", "LOC", "FAC", "ENTITY"
   ]
 }

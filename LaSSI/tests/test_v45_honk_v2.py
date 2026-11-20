@@ -300,5 +300,46 @@ class HOnKv2IsKeptApartFromV44(unittest.TestCase):
         self.assertEqual(load_db_configuration(os.path.join(root, "connection.yaml")).db, "lassi_v45")
 
 
+class FacIsAPlaceInTheRuleFiles(unittest.TestCase):
+    """LaSSI's rule files name place types in lists, and v4.4's lists say LOC where HOnK v1 typed streets LOC. HOnK v2
+    types them FAC (Edward Place, Fenkle Street), so those rules stopped firing for them. In "on or near Edward Place,
+    Newcastle" the apposition rule then nested Newcastle inside the street where v4.4 kept the two side by side, and
+    CURB's crime_002_S and crime_005_S fell from Supported to NEE (Comet, 20 Nov). FAC goes wherever LOC is, ranked
+    after it (Oliver, 19 Nov: GPE > LOC > FAC)."""
+
+    @staticmethod
+    def _read(*parts):
+        import os
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        return open(os.path.join(root, *parts), encoding="utf-8").read()
+
+    def test_every_derivation_rule_naming_loc_names_fac(self):
+        import json
+
+        def lists(o):
+            if isinstance(o, dict):
+                for v in o.values():
+                    yield from lists(v)
+            elif isinstance(o, list):
+                yield o
+                for v in o:
+                    yield from lists(v)
+
+        rules = json.loads(self._read("raw_data", "logical_analysis.json"))["derivation_rules"]
+        self.assertEqual([i for i, r in enumerate(rules) for l in lists(r["premise"]) if "LOC" in l and "FAC" not in l],
+                         [])
+
+    def test_fac_ranks_right_after_loc_when_types_tie(self):
+        import json
+        order = json.loads(self._read("raw_data", "type_resolution_rules.json"))["meu_types"]
+        self.assertEqual(order[order.index("LOC") + 1], "FAC")
+
+    def test_tbox_queries_testing_loc_test_fac(self):
+        for name in ("query_impl.txt", "query_eq.txt"):
+            lines = [l for l in self._read(name).splitlines() if 'type : "LOC"' in l]
+            self.assertTrue(lines, name)
+            self.assertEqual([l for l in lines if 'type : "FAC"' not in l], [], name)
+
+
 if __name__ == "__main__":
     unittest.main()

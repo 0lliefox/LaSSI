@@ -75,7 +75,7 @@ nested match        FUnaryPredicate ( "be",  var(arg) , var(score), var(props)  
 // query #8:  If a location has a given property, then this is equal to a thing to exist at a given location
 nested match   FBinaryPredicate ( "have", var(src), var(dst) , var(score), var(props) )
        replace var(x) with  jsonpath "$0:$.src.name"
-       where (call "nonEmptyMatch" with variable : "x") && (call "isOfType" with variable : "x" type : "LOC") || (call "isOfType" with variable : "x" type : "GPE")
+       where (call "nonEmptyMatch" with variable : "x") && (call "isOfType" with variable : "x" type : "LOC") || (call "isOfType" with variable : "x" type : "GPE") || (call "isOfType" with variable : "x" type : "FAC")
        as   FUnaryPredicate ( "be" ,   var(dst)   , var(score), ( "addProperty" (var(props)) with key : "SPACE" value : var(src) ) )
        ;
 /* HOnK-aligned (15 Oct 2026): HOnK defines relatedTo as 'general semantic association' (Ch. 4 glossary), which licenses neither implication nor equivalence
@@ -209,7 +209,7 @@ nested match FBinaryPredicate ( _, var(src), var(dst), var(score), var(props) )
 nested match   FUnaryPredicate ( "be", var(src), var(score), var(props) )
        replace var(x) with  jsonpath "$0:$.arg.name",
                var(cop) with jsonpath "$0:$.arg.cop"
-       where (call "nonEmptyMatch" with variable : "cop") && (call "nonEmptyMatch" with variable : "x") && ((call "isOfType" with variable : "x" type : "LOC") || (call "isOfType" with variable : "x" type : "GPE"))
+       where (call "nonEmptyMatch" with variable : "cop") && (call "nonEmptyMatch" with variable : "x") && ((call "isOfType" with variable : "x" type : "LOC") || (call "isOfType" with variable : "x" type : "GPE") || (call "isOfType" with variable : "x" type : "FAC"))
        as deep rewrite var(src) to "dropCopula" ( var(src) ) ,
                        jsonpath "$0:$" to  FUnaryPredicate ( "be" ,  var(cop) , var(score), ( "addProperty" ( var(props) ) with key : "SPACE" value :  var(src) ) )
        ;

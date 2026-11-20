@@ -524,7 +524,8 @@
           "SingletonHasBeenMatchedBy": [
             "SUTime",
             "LOC",
-            "GPE"
+            "GPE",
+            "FAC"
           ],
           "CausativeVerb": true
         }
@@ -548,7 +549,8 @@
           "SingletonHasBeenMatchedBy": [
             "SUTime",
             "LOC",
-            "GPE"
+            "GPE",
+            "FAC"
           ]
         }
       },
@@ -642,7 +644,8 @@
         ],
         "SingletonHasBeenMatchedBy": [
           "GPE",
-          "LOC"
+          "LOC",
+          "FAC"
         ]
       },
       "classification": [
@@ -1284,12 +1287,14 @@
         ],
         "SingletonHasBeenMatchedBy": [
           "GPE",
-          "LOC"
+          "LOC",
+          "FAC"
         ],
         "not": {
           "SourceSingletonHasBeenMatchedBy": [
             "GPE",
-            "LOC"
+            "LOC",
+            "FAC"
           ]
         }
       },
