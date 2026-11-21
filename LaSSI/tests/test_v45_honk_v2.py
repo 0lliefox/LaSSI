@@ -250,17 +250,27 @@ class HonkTableIsStreamedFromTheGraphFile(unittest.TestCase):
         self.assertEqual(rows["Newcastle"], "GPE,FAC,noun")      # a set v4.4 never had: precedence order
 
 
-class HOnKv2IsKeptApartFromV44(unittest.TestCase):
-    """Oliver, 16 and 18 Nov: v4.5's HOnK v2 table goes in a separate database; the shared "honk" table (DB lassi) and
-    v4.4's cache/honk_oxstore are never rebuilt. v4.4 named all three in code ("honk", "cache", "LaSSI/HOnK.ttl")."""
+class HOnKv161IsKeptApart(unittest.TestCase):
+    """Oliver, 16 and 18 Nov: v4.5's HOnK table goes in a separate database; the shared "honk" table (DB lassi) and
+    v4.4's cache/honk_oxstore are never rebuilt. v4.4 named all three in code ("honk", "cache", "LaSSI/HOnK.ttl").
+    20 Nov: LaSSI freezes on HOnK v1.6.1, not v2.0.0, and its table is honk_v161. LaSSI rebuilds a store in place when
+    the graph file's mtime differs from the cache's marker, so v1.6.1 must not share a cache with v2.0.0 either."""
 
-    def test_names_are_v45s_own(self):
+    V44 = ("honk", "cache", "LaSSI/HOnK.ttl")
+    V2 = ("honk_v2", "cache_v45", "LaSSI/HOnK-v2-0-0.nt")
+
+    def test_names_are_v161s_own(self):
         from LaSSI.Configuration import HONK_CACHE, HONK_GRAPH, HONK_TABLE
-        self.assertEqual((HONK_TABLE, HONK_CACHE, HONK_GRAPH), ("honk_v2", "cache_v45", "LaSSI/HOnK-v2-0-0.nt"))
+        self.assertEqual((HONK_TABLE, HONK_CACHE, HONK_GRAPH), ("honk_v161", "cache_v161", "LaSSI/HOnK-v1-6-1.nt"))
 
-    def test_the_fuzzy_matcher_reads_the_v2_table(self):
+    def test_no_name_is_v44s_or_v2s(self):
+        from LaSSI.Configuration import HONK_CACHE, HONK_GRAPH, HONK_TABLE
+        for mine, v44, v2 in zip((HONK_TABLE, HONK_CACHE, HONK_GRAPH), self.V44, self.V2):
+            self.assertNotIn(mine, (v44, v2))
+
+    def test_the_fuzzy_matcher_reads_the_v161_table(self):
         from LaSSI.external_services.HOnKFuzzyMatch import HOnKFuzzyMatch
-        self.assertEqual(HOnKFuzzyMatch(None, None, None).s.tablename, "honk_v2")
+        self.assertEqual(HOnKFuzzyMatch(None, None, None).s.tablename, "honk_v161")
 
     def test_the_database_is_lassi_v45(self):
         import os
