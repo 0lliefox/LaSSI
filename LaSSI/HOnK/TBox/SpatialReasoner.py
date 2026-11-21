@@ -737,6 +737,38 @@ def _space_coreference_verdict(lhs_formula, rhs_formula):
     return CasusHappening.INDIFFERENT
 
 
+def _space_values_with_negation(formula):
+    """Every value under the SPACE key of a predicate, negated values included, across all SPACE entries. A negated
+    predicate is not unwrapped: its SPACE is inside the negation's scope."""
+    if not isinstance(formula, (FBinaryPredicate, FUnaryPredicate)) or not formula.properties:
+        return []
+    out = []
+    for k, vs in formula.properties:
+        if k == "SPACE":
+            out.extend(vs if isinstance(vs, tuple) else (vs,))
+    return out
+
+
+def _space_negated_place_contradiction(lhs_formula, rhs_formula, compare_value, compare_formula) -> bool:
+    """True when one predicate puts the event in a place and the other puts the same event explicitly not in that
+    place: "There is traffic in the Newcastle city centre" against "Newcastle has traffic but not in the city centre",
+    be(traffic)[SPACE: city centre, SPACE: Newcastle] against be(traffic)[SPACE: NOT(city centre), SPACE: Newcastle].
+
+    Both tests are the comparator's own. `compare_value(p, NOT(q))` is EXCLUSIVES only when p and q are the same place
+    (a different place, "not at Haymarket" against "at Monument", stays indifferent), and `compare_formula` on the two
+    originals is EXCLUSIVES only when relation and arguments match, so the two describe one event. The check is needed
+    on the originals because the expansion search compares one have(place, traffic) per place, where the shared
+    Newcastle matches, and drops the exclusion between same-relation originals as WordNet antonym noise."""
+    for a, b in ((lhs_formula, rhs_formula), (rhs_formula, lhs_formula)):
+        negated = [v for v in _space_values_with_negation(b) if isinstance(v, FNot) and isinstance(v.arg, FVariable)]
+        if not negated:
+            continue
+        plain = [v for v in _space_values_with_negation(a) if isinstance(v, FVariable)]
+        if any(compare_value(p, n) == CasusHappening.EXCLUSIVES for p in plain for n in negated):
+            return compare_formula(lhs_formula, rhs_formula) == CasusHappening.EXCLUSIVES
+    return False
+
+
 def _space_relation_narrowing(lhs_formula, rhs_formula) -> bool:
     """True when LHS only commits to a broader spatial relation than RHS.
 

@@ -14,7 +14,15 @@ from LaSSI.ner.structural_rewrites.base import (
     property_values,
     replace_kernel,
 )
+from LaSSI.ner.string_functions import is_position_key
 from LaSSI.structures.internal_graph.EntityRelationship import Singleton
+
+
+def _names_a_place(node, ctx):
+    """The location test on the node's name and type alone, without its properties."""
+    bare = Singleton(id=node.id, named_entity=node.named_entity, properties=frozenset(), min=node.min, max=node.max,
+                     type=node.type, confidence=node.confidence, kernel=None)
+    return is_location_like(bare, ctx)
 
 
 class ExistentialLocativeToHaveRule(StructuralRewriteRule):
@@ -73,13 +81,38 @@ class ExistentialLocativeToHaveRule(StructuralRewriteRule):
              if isinstance(v, Singleton) and (v.type or "").lower() not in ("existential",)),
             None,
         )
-        if possessed is None:
-            return None
+        if possessed is not None:
+            return {
+                "locative": locative,
+                "possessed": possessed,
+                "stranded_target": rel.target,
+                "plain": False,
+            }
 
+        # Plain existential (19 Nov 2026, city-centre set): "There is traffic in the Newcastle city centre" is
+        # be(?existential, traffic)[SPACE: Newcastle[extra: city centre]], with the thing that exists as the copula's
+        # own target, not in SPECIFICATION. It is the same statement as "Newcastle city centre has traffic"
+        # (have(Newcastle[extra: city centre], traffic)), which the docstring's equivalence covers but the match did
+        # not. Only a single, plain place is taken: a negated or coordinated SPACE ("but not in the city centre",
+        # "in X and Y") is left as it is, and so is a target that is itself a place or a placeholder.
+        # Both place tests look at the node's own name and type only (_names_a_place): the matcher's test also reads
+        # every property key and value, and a SPACE value always carries "type: stay in place", whose "in" and
+        # "place" are HOnK location nouns, as is the existential's "there".
+        # The target must be a common noun ("traffic"): "It is busy in Newcastle" reaches the rule in the same shape,
+        # be(?existential, busy)[SPACE: Newcastle], because the pronoun "it" also becomes an existential placeholder,
+        # but it says Newcastle is busy, not that Newcastle has something.
+        target = rel.target
+        if not (isinstance(target, Singleton) and (target.type or "").lower() == "noun"
+                and not _names_a_place(target, ctx)):
+            return None
+        plain_places = [v for v in space_vals if isinstance(v, Singleton) and _names_a_place(v, ctx)]
+        if len(plain_places) != 1 or len(space_vals) != 1:
+            return None
         return {
-            "locative": locative,
-            "possessed": possessed,
-            "stranded_target": rel.target,
+            "locative": plain_places[0],
+            "possessed": target,
+            "stranded_target": None,
+            "plain": True,
         }
 
     def apply(self, kernel, bindings, ctx):
@@ -98,6 +131,15 @@ class ExistentialLocativeToHaveRule(StructuralRewriteRule):
         # the asserted predicate. Skip an existential/None placeholder.
         if isinstance(stranded, Singleton) and (stranded.type or "").lower() != "existential":
             append_unique_property_value(props, "CAUSATION", stranded)
+
+        if bindings.get("plain"):
+            # The place becomes the possessor: its spatial-framing markers (the preposition's position key, case,
+            # and the SPACE logical type "stay in place") belong to the SPACE role it leaves, not to a subject.
+            loc_props = {k: v for k, v in dict(locative.properties).items()
+                         if not (is_position_key(k) or k in ("case", "type"))}
+            locative = Singleton(id=locative.id, named_entity=locative.named_entity,
+                                 properties=freeze_props(loc_props), min=locative.min, max=locative.max,
+                                 type=locative.type, confidence=locative.confidence, kernel=locative.kernel)
 
         have_edge = kernel.kernel.edgeLabel.update_name("have")
         new_kernel = replace_kernel(
