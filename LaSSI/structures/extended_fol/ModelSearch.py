@@ -340,6 +340,19 @@ class ModelSearch:
             if _TRACE_COMPARE:
                 print(f"[COMPARE] path=TIME_MISMATCH, result=EXCLUSIVES")
             return self.main_cache[cp]
+        # A place against "not" that place for the same event is a contradiction (see
+        # _space_negated_place_contradiction); the expansion search below cannot see it.
+        from LaSSI.HOnK.TBox.SpatialReasoner import _space_negated_place_contradiction
+        from LaSSI.HOnK.TBox.ExpandConstituents import compare_variable, test_pairwise_sentence_similarity
+        _d = self.pairwise_similarity_cache
+        if _space_negated_place_contradiction(
+                objLHS.original, objRHS.original,
+                lambda p, n: compare_variable(_d, p, n),
+                lambda x, y: test_pairwise_sentence_similarity(_d, x, y, store=False, shift=False)):
+            self.main_cache[cp] = CasusHappening.EXCLUSIVES
+            if _TRACE_COMPARE:
+                print(f"[COMPARE] path=SPACE_NEGATED_PLACE, result=EXCLUSIVES")
+            return self.main_cache[cp]
         if ((objLHS.original == make_not(objRHS.original)) or
               (objLHS.original == make_not(objLHS.original)) or
               (make_not(objLHS.original) in objRHS.unary) or

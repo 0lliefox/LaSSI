@@ -114,9 +114,16 @@ def _canon_fvar(fvar):
 
     original_concept = _canon_lookup_paraphrase_concept(name)
 
+    var_type = fvar.type
     if name and isinstance(spec, str) and spec:
+        # The specification is the head of the compound: Newcastle[extra: city centre] is a city centre. The type
+        # belongs to the name it replaces (Newcastle, GPE), not to the head, so the head takes the common-noun type.
+        # Keeping GPE made "city centre" a second settlement beside "Newcastle" in the spatial comparison
+        # (_place_kind -> _places_derivably_disjoint), so "It is busy in Newcastle" contradicted "traffic is flowing in
+        # Newcastle city centre".
         name = spec
         spec = None
+        var_type = "noun"
 
     head_concept = _canon_lookup_paraphrase_concept(name)
     parent_concept_for_cop = head_concept or original_concept
@@ -134,7 +141,7 @@ def _canon_fvar(fvar):
 
     return FVariable(
         name=name,
-        type=_canon_type(fvar.type),
+        type=_canon_type(var_type),
         specification=spec,
         cop=new_cop,
         id=None,
