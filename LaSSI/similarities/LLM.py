@@ -119,17 +119,26 @@ class LLMPrompt:
         return self._dispatch(self._build_prompt(premise, consequence))
 
     def _dispatch_hf(self, prompt: str) -> dict:
-        """Greedy decoding is deterministic, so a failed response is not retried: it returns None as the score."""
+        """Greedy decoding is deterministic, so a failed response is not retried: it returns None as the score.
+        Only a response without a usable score gives None; a failure to generate one (a fault in the set-up) is raised,
+        never counted as the model's answer."""
         import torch
         tok, model, lock = _hf_load(self.model_name)
-        ids = tok.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True,
-                                      return_tensors="pt").to(model.device)
+        enc = tok.apply_chat_template([{"role": "user", "content": prompt}], add_generation_prompt=True,
+                                      return_tensors="pt")
+        # transformers 4.x returns the ids tensor; 5.x a BatchEncoding with input_ids and attention_mask
+        if isinstance(enc, torch.Tensor):
+            ids, mask = enc, torch.ones_like(enc)
+        else:
+            ids = enc["input_ids"]
+            mask = enc["attention_mask"] if "attention_mask" in enc else torch.ones_like(ids)
+        ids, mask = ids.to(model.device), mask.to(model.device)
+        with lock, torch.no_grad():
+            out = model.generate(ids, attention_mask=mask, do_sample=False, temperature=None,
+                                 top_p=None, top_k=None, max_new_tokens=_HF_MAX_NEW_TOKENS,
+                                 pad_token_id=tok.pad_token_id if tok.pad_token_id is not None else tok.eos_token_id)
+        text = tok.decode(out[0][ids.shape[-1]:], skip_special_tokens=True)
         try:
-            with lock, torch.no_grad():
-                out = model.generate(ids, attention_mask=torch.ones_like(ids), do_sample=False, temperature=None,
-                                     top_p=None, top_k=None, max_new_tokens=_HF_MAX_NEW_TOKENS,
-                                     pad_token_id=tok.pad_token_id if tok.pad_token_id is not None else tok.eos_token_id)
-            text = tok.decode(out[0][ids.shape[-1]:], skip_special_tokens=True)
             return _parse_score(text)
         except (ValueError, TypeError) as e:
             print(f"[LLM] No score in the response: {e}")

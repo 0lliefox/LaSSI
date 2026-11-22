@@ -40,8 +40,19 @@ class FakeModel:
         return torch.tensor([ids[0].tolist() + [9, 9]])
 
 
-def install(model_name, reply):
-    tok, model = FakeTokenizer(reply), FakeModel()
+class FakeTokenizerV5(FakeTokenizer):
+    """transformers 5's apply_chat_template(return_tensors="pt") gives a BatchEncoding, not the ids tensor (Comet, 21 Nov:
+    gemma4:31b loaded on two L40S, then every prompt failed with "ones_like(): argument 'input' must be Tensor, not
+    BatchEncoding")."""
+
+    def apply_chat_template(self, messages, add_generation_prompt, return_tensors):
+        from transformers import BatchEncoding
+        ids = super().apply_chat_template(messages, add_generation_prompt, return_tensors)
+        return BatchEncoding({"input_ids": ids, "attention_mask": torch.ones_like(ids)})
+
+
+def install(model_name, reply, tokenizer=FakeTokenizer):
+    tok, model = tokenizer(reply), FakeModel()
     LLM._HF_LOADED[model_name] = (tok, model, LLM.threading.Lock())
     return tok, model
 
@@ -121,6 +132,17 @@ class TestHFDispatch(unittest.TestCase):
         self.assertIsNone(kw["temperature"])
         self.assertEqual(kw["max_new_tokens"], 512)
         self.assertEqual(kw["pad_token_id"], 2)
+
+    def test_transformers5_chat_template_output(self):
+        tok, model = install("gemma4:31b", '{"reasoning": "closed", "implication_score": 1.0}', FakeTokenizerV5)
+        self.assertEqual(LLM.LLMPrompt("gemma4:31b").call_with_reasoning("E", "C"), (1.0, "closed"))
+        self.assertEqual(model.kwargs["attention_mask"].tolist(), [[1, 1, 1]])
+
+    def test_a_generation_fault_is_raised_not_scored_none(self):
+        tok, model = install("gemma4:31b", "unused")
+        model.generate = mock.Mock(side_effect=TypeError("a fault in the set-up"))
+        with self.assertRaises(TypeError):
+            LLM.LLMPrompt("gemma4:31b").call_with_reasoning("E", "C")
 
     def test_json_inside_text(self):
         install("llama3.2:3b", 'Here you go:\n```json\n{"reasoning": "no", "implication_score": 0.0}\n```')
