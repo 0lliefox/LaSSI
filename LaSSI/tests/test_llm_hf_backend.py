@@ -113,6 +113,31 @@ class TestBackendChoice(unittest.TestCase):
             os.remove(path)
 
 
+class TestNoScoreGuard(unittest.TestCase):
+    """A pair with no usable output counts as wrong, so a run where every pair gave none (as transformers 5's chat
+    template output did on 21 Nov) would look like a very bad model. Each case's matrix is counted; a case with no
+    score at all stops the run (Oliver, 21 Nov: "Stop if a case gets no score at all")."""
+
+    def test_counts_the_asked_cells_only(self):
+        m = [[1.0, None, 0.5], [None, 1.0, None], [0.0, None, 1.0]]
+        self.assertEqual(LLM.no_score_counts(m), (6, 4))
+
+    def test_row0_mode_counts_row0_only(self):
+        m = [[1.0, 0.5, None], [None, 1.0, None], [None, None, 1.0]]   # rows 1-2 hold None without a call
+        self.assertEqual(LLM.no_score_counts(m, row0_only=True), (2, 1))
+
+    def test_some_scores_warn_with_the_count(self):
+        self.assertEqual(LLM.check_no_score("qwen2.5:7b", 6, 5),
+                         "[LLM] qwen2.5:7b: 5 of 6 computed cells gave no usable score")
+
+    def test_no_score_at_all_stops(self):
+        with self.assertRaises(LLM.NoScoreAtAll):
+            LLM.check_no_score("gemma4:31b", 6, 6)
+
+    def test_nothing_asked_does_not_stop(self):
+        self.assertTrue(LLM.check_no_score("gemma4:31b", 0, 0).endswith("0 of 0 computed cells gave no usable score"))
+
+
 class TestHFDispatch(unittest.TestCase):
     def setUp(self):
         self.env = mock.patch.dict(os.environ, {"LASSI_LLM_BACKEND": "hf"})

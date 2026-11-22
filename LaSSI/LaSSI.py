@@ -552,7 +552,7 @@ class LaSSI():
             self.logger(f"LLM+HOnK reasoning saved to {reasoning_path}")
         elif self.transformation == SentenceRepresentation.FullText and self.legacy_conf.HuggingFace.startswith("LLM#"):
             self.logger(f"Connecting to LLM model: {self.legacy_conf.HuggingFace}...")
-            from LaSSI.similarities.LLM import LLMPrompt
+            from LaSSI.similarities.LLM import LLMPrompt, check_no_score, no_score_counts
             from tqdm import tqdm
             model_name = self.legacy_conf.HuggingFace[4:]
             f = LLMPrompt(model_name)
@@ -585,7 +585,8 @@ class LaSSI():
                         pbar.update(1)
                     matrices[i] = row
                     self.sentences_benchmark.add_row(i, "Performing ex post explanation", time.time() - t0)
-            # Save the reasoning alongside the confusion matrix
+            # Save the reasoning alongside the confusion matrix, with how many asked cells gave no usable score
+            computed, no_score = no_score_counts(matrices, row0_only)
             model_suffix = model_name.split("/")[-1]
             reasoning_path = f"{self.confusion_matrices}FullText_{model_suffix}_reasoning.json"
             with open(reasoning_path, "w") as _rf:
@@ -593,8 +594,12 @@ class LaSSI():
                     "model": model_name,
                     "sentences": list(obj_list),
                     "reasoning": reasoning_grid,
+                    "computed_cells": computed,
+                    "no_score_cells": no_score,
                 }, _rf, indent=2)
             self.logger(f"LLM reasoning saved to {reasoning_path}")
+            # after saving, so a stopped run keeps the reasoning that shows why
+            self.logger(check_no_score(model_name, computed, no_score))
         else:
             if self.transformation == SentenceRepresentation.FullText:
                 self.logger(f"Loading/Downloading Transformer model: {self.legacy_conf.HuggingFace}...")

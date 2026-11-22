@@ -83,6 +83,34 @@ def _parse_score(text):
     raise ValueError("no JSON object with 'implication_score' in the response")
 
 
+class NoScoreAtAll(RuntimeError):
+    """Every computed cell of a case gave no usable score: a fault in the set-up, not the model's answer."""
+
+
+def no_score_counts(matrix, row0_only=False):
+    """(computed, without a score) over a matrix's off-diagonal cells, the ones the model was asked. In row-0 mode only
+    row 0 is asked; the other rows hold None without a call."""
+    computed = none = 0
+    for i, row in enumerate(matrix):
+        if row0_only and i > 0:
+            continue
+        for j, value in enumerate(row):
+            if i != j:
+                computed += 1
+                none += value is None
+    return computed, none
+
+
+def check_no_score(model_name, computed, none):
+    """The line to log for a case's matrix. A pair with no usable output counts as wrong (plan section 4.6), so a case
+    where every computed cell has none would read as a very bad model; it stops the run instead (Oliver, 21 Nov:
+    "Stop if a case gets no score at all")."""
+    line = f"[LLM] {model_name}: {none} of {computed} computed cells gave no usable score"
+    if computed and none == computed:
+        raise NoScoreAtAll(line + ": every one, so the set-up is at fault, not the model; stopping")
+    return line
+
+
 class LLMPrompt:
     def __init__(self, model_name="qwen2.5"):
         self.model_name = model_name
