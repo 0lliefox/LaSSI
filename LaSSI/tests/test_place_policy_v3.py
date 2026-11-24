@@ -11,7 +11,7 @@ from unittest import mock
 
 import LaSSI.HOnK.TBox.SpatialReasoner as SR
 from LaSSI.HOnK.HOnK import HOnKSingleton
-from LaSSI.structures.extended_fol.Formulae import FBinaryPredicate, FOr, FVariable
+from LaSSI.structures.extended_fol.Formulae import FAnd, FBinaryPredicate, FOr, FVariable
 
 STAY = FVariable("stay in place", "logical_type", None, None, None, frozenset())
 NEAR = FVariable("near place", "logical_type", None, None, None, frozenset())
@@ -103,6 +103,72 @@ class PlacePolicyV3(unittest.TestCase):
         claim = recorded(place("Newcastle", "at", "GPE"))
         self.assertFalse(SR._space_city_mismatch_contradiction(ev, claim))
         self.assertFalse(SR._space_mismatch_contradiction(ev, claim))
+
+
+FORECAST_HONK = SimpleNamespace(
+    getGeoSuffixNouns=lambda: set(), getFacilityNouns=lambda: set(), are_synonyms=lambda a, b: False, _isA_supers={},
+    # HOnK's PredictionVerb and WeatherConditionNoun/Adjective classes (raw_data/verbs/prediction_verbs.txt,
+    # raw_data/nouns/weather_condition_nouns.txt), as far as these statements need them
+    getPredictionVerbs=lambda: {"forecast", "predict", "expect", "expected"},
+    getWeatherConditionNouns=lambda: {"forecast", "rain", "precipitation", "chance", "wind", "cloud"},
+    getWeatherConditionAdjectives=lambda: {"cloudy"})
+
+
+def forecast_claim(town):
+    """"<town> is forecast to be cloudy with a 10% chance of rain at 4pm" as the parser gives it."""
+    return FBinaryPredicate("be", FVariable("forecast", "noun"),
+                            FAnd((FVariable("rain", "noun", specification="%"), FVariable("cloudy", "JJ"))), 1.0,
+                            frozenset({("SPACE", (place(town, "at", "GPE"),))}))
+
+
+MET_OFFICE = FBinaryPredicate(
+    "be", FVariable("Met Office", "GPE", specification="forecast"),
+    FAnd((FVariable("precipitation", "noun", specification="chance"), FVariable("wind", "noun"))), 1.0,
+    frozenset({("SPACE", (place("Newcastle upon Tyne", "at", "GPE"),))}))
+
+
+def roadworks(town):
+    """"Work expected to end on 17 April in <town>": a prediction term, no weather term."""
+    return FBinaryPredicate("end", FVariable("work", "noun"), FVariable("?2", "existential"), 1.0,
+                            frozenset({("SPACE", (place(town, "at", "GPE"),)),
+                                       ("MODALITY", FVariable("expected", "JJ"))}))
+
+
+class ForecastsKeepTheirPlace(unittest.TestCase):
+    """Policy v3.1's Forecasts rule (Oliver, 24 Nov: "Yes, off for forecasts"; recognised from HOnK's classes, not the
+    case or the source): a forecast applies only to its own place and time, so a forecast for another town is NEE.
+    CURB's weather_004_R, "Gateshead is forecast to be cloudy ... at 4pm" against the Met Office forecast for Newcastle."""
+
+    def setUp(self):
+        for p in (mock.patch.object(HOnKSingleton, "isReady", staticmethod(lambda: True)),
+                  mock.patch.object(HOnKSingleton, "get", staticmethod(lambda: FORECAST_HONK), create=True),
+                  mock.patch.object(SR, "_class_typed_members", lambda: {}),
+                  mock.patch.object(SR, "_geo_names_compatible", lambda kb, a, b: False)):
+            p.start()
+            self.addCleanup(p.stop)
+        self.addCleanup(SR.set_doc_source, None, None)
+        SR.set_doc_source("Met Office", "Newcastle upon Tyne")
+
+    def test_recognised_from_the_classes(self):
+        self.assertTrue(SR._is_weather_forecast(forecast_claim("Gateshead")))
+        self.assertTrue(SR._is_weather_forecast(MET_OFFICE))
+        self.assertFalse(SR._is_weather_forecast(roadworks("Newcastle")))  # a prediction, but not of the weather
+        self.assertFalse(SR._is_weather_forecast(recorded(place("Newcastle", "at", "GPE"))))
+
+    def test_forecast_against_a_forecast_for_another_town(self):
+        self.assertFalse(SR._space_city_mismatch_contradiction(forecast_claim("Newcastle"), forecast_claim("Gateshead")))
+
+    def test_met_office_forecast_against_another_towns_forecast(self):
+        self.assertFalse(SR._space_city_mismatch_contradiction(MET_OFFICE, forecast_claim("Gateshead")))
+        self.assertFalse(SR._space_city_mismatch_contradiction(forecast_claim("Gateshead"), MET_OFFICE))
+        self.assertFalse(SR._space_mismatch_contradiction(MET_OFFICE, forecast_claim("Gateshead")))
+
+    def test_roadworks_expected_to_end_keep_the_town_test(self):
+        self.assertTrue(SR._space_city_mismatch_contradiction(roadworks("Newcastle"), roadworks("Sunderland")))
+
+    def test_a_record_keeps_the_town_test(self):
+        self.assertTrue(SR._space_city_mismatch_contradiction(recorded(place("Newcastle", "at", "GPE")),
+                                                              recorded(place("Sunderland", "at", "GPE"))))
 
 
 if __name__ == "__main__":

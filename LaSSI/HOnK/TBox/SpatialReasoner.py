@@ -81,6 +81,85 @@ def _is_police_uk_record_point(name) -> bool:
     """True when `name` is the record's map-point name, whether a street or a type of place."""
     label = _police_uk_record_label()
     return label is not None and isinstance(name, str) and _name_tokens(name) == _name_tokens(label)
+
+
+# --- Forecasts keep their place (labelling policy v3.1's Forecasts rule; Oliver, 24 Nov 2026) -------------------------
+#
+# A forecast applies only to its own place and time, so a forecast for another town is not a contradiction: "Gateshead
+# is forecast to be cloudy at 4pm" and the Met Office forecast for Newcastle can both be true. A statement is a weather
+# forecast when it holds a term of HOnK's PredictionVerb class (forecast, predict, expect ...) and a term of its
+# WeatherConditionNoun or WeatherConditionAdjective class (forecast, rain, precipitation, chance, cloud ...). That is
+# the class rule ChunkProfiler already applies to weather report headers, read here from the statement's own words.
+# "Work expected to end ..." has a prediction term and no weather term, so roadworks keep the town test. Only the place
+# test is off for forecasts: the time test and the comparison of the weather itself are unchanged.
+
+def _forecast_classes():
+    """(prediction terms, weather-condition terms), lowercased, from HOnK's classes; empty when HOnK is not ready."""
+    if not HOnKSingleton.isReady():
+        return frozenset(), frozenset()
+    kb = HOnKSingleton.get()
+
+    def lower(ws):
+        return {w.lower() for w in (ws or ()) if isinstance(w, str)}
+
+    return (lower(kb.getPredictionVerbs()),
+            lower(kb.getWeatherConditionNouns()) | lower(kb.getWeatherConditionAdjectives()))
+
+
+def _statement_terms(formula, out=None, depth=0):
+    """The words of a statement: its relations, arguments, their specifications and their properties, except the SPACE
+    and TIME values (a place or a time is not what the statement says)."""
+    out = set() if out is None else out
+    if depth > 8 or formula is None:
+        return out
+
+    def words(text):
+        if isinstance(text, str) and text and not text.startswith("?"):
+            t = text.strip().lower()
+            out.add(t)
+            out.update(t.split())
+
+    def props(properties):
+        for k, vs in (properties or ()):
+            if k in ("SPACE", "TIME"):
+                continue
+            for x in (vs if isinstance(vs, tuple) else (vs,)):
+                _statement_terms(x, out, depth + 1)
+
+    if isinstance(formula, str):
+        words(formula)
+    elif isinstance(formula, FVariable):
+        words(formula.name)
+        words(formula.specification if isinstance(formula.specification, str) else None)
+        props(formula.properties)
+    elif isinstance(formula, FUnaryPredicate):
+        words(formula.rel)
+        _statement_terms(formula.arg, out, depth + 1)
+        props(formula.properties)
+    elif isinstance(formula, FBinaryPredicate):
+        words(formula.rel)
+        _statement_terms(formula.src, out, depth + 1)
+        _statement_terms(formula.dst, out, depth + 1)
+        props(formula.properties)
+    elif isinstance(formula, (FAnd, FOr)):
+        for x in formula.args:
+            _statement_terms(x, out, depth + 1)
+    elif isinstance(formula, FNot):
+        _statement_terms(formula.arg, out, depth + 1)
+    elif isinstance(formula, (tuple, list, frozenset)):
+        for x in formula:
+            _statement_terms(x, out, depth + 1)
+    return out
+
+
+def _is_weather_forecast(formula) -> bool:
+    prediction, weather = _forecast_classes()
+    if not prediction or not weather:
+        return False
+    terms = _statement_terms(formula)
+    return not terms.isdisjoint(prediction) and not terms.isdisjoint(weather)
+
+
 # Spatial-relation type labels, declared once in logical_analysis.json's
 # `spatial_relations` block (where they originate as the `type: space`
 # derivation-rule properties). `movement` = displacement-or-stay labels;
@@ -234,6 +313,9 @@ def _space_mismatch_contradiction(lhs, rhs) -> bool:
     # a contradiction — regardless of the spatial-relation direction.
     if _space_coreference_verdict(lhs, rhs) is not None:
         return False
+    # A forecast applies only to its own place (policy v3.1): see _is_weather_forecast.
+    if _is_weather_forecast(lhs) or _is_weather_forecast(rhs):
+        return False
     lhs_places = _space_place_values(lhs, near=True)
     rhs_places = _space_place_values(rhs, near=True)
     if not lhs_places or not rhs_places:
@@ -298,6 +380,9 @@ def _space_city_mismatch_contradiction(lhs, rhs) -> bool:
     # needs a place on EACH side with no counterpart on the other, and that pair
     # must be derivably distinct (see _places_derivably_disjoint).
     if _space_coreference_verdict(lhs, rhs) is not None:
+        return False
+    # A forecast applies only to its own place (policy v3.1): see _is_weather_forecast.
+    if _is_weather_forecast(lhs) or _is_weather_forecast(rhs):
         return False
     lhs_places = _space_place_values(lhs, near=False)
     rhs_places = _space_place_values(rhs, near=False)
