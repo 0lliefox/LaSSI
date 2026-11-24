@@ -8,6 +8,8 @@ formulas only (no parser, no HOnK load, no CURB or held-out text):
   3. "On or near Parking Area" does not say which car park, so it is not the same place as a named one;
   4. a different place name does not contradict the record.
 Each test also shows the behaviour without the sidecar, so it fails on archived v4.4 (37d3163) where it should.
+Example 4 since labelling policy v3 (24 Nov 2026, a declared change; test_place_policy_v3.py): a different street does
+not contradict any record, Police.uk or not; a different town contradicts every record, Police.uk included.
 """
 import unittest
 from types import SimpleNamespace
@@ -116,7 +118,7 @@ class PoliceUkVicinity(unittest.TestCase):
         ev = recorded(place("Grey Street", "on or near"))
         claim = recorded(place("Blackett Street", "near"))
         self.other_source()
-        self.assertTrue(SR._space_mismatch_contradiction(ev, claim))  # elsewhere: two streets, one event
+        self.assertFalse(SR._space_mismatch_contradiction(ev, claim))  # policy v3: not for any source either
         self.police("On or near Grey Street")
         self.assertFalse(SR._space_mismatch_contradiction(ev, claim))
         self.assertFalse(SR._space_mismatch_contradiction(claim, ev))
@@ -129,13 +131,15 @@ class PoliceUkVicinity(unittest.TestCase):
         with mock.patch.dict("os.environ", {"LASSI_SYNONYMY": "curated"}):
             self.assertFalse(SR._space_mismatch_contradiction(ev, claim))
 
-    def test_different_city_does_not_refute(self):
+    def test_different_city_refutes(self):
+        """Policy v3 (Oliver, 24 Nov): a claim placing the event in another town than the record's is Refuted, for a
+        Police.uk record too. Up to this change the record was never contradicted by any place."""
         ev = recorded(place("Grey Street", "on or near"), place("Newcastle", "at", "GPE"))
         claim = recorded(place("Grey Street", "near"), place("Sunderland", "at", "GPE"))
         self.other_source()
         self.assertTrue(SR._space_city_mismatch_contradiction(ev, claim))  # elsewhere: two settlements
         self.police("On or near Grey Street")
-        self.assertFalse(SR._space_city_mismatch_contradiction(ev, claim))
+        self.assertTrue(SR._space_city_mismatch_contradiction(ev, claim))
 
 
 if __name__ == "__main__":

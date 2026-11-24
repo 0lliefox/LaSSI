@@ -55,8 +55,8 @@ def _police_uk_map_point_types():
 #   - it fully supports "near X" (and "on or near X"), but not "on X" or "at X" (_space_relation_narrowing);
 #   - a point named only by its type ("Parking Area", "Bus/Coach Station") is never the same place as a named place
 #     (_spaces_corefer);
-#   - a different place never contradicts it, because LaSSI measures no distances (_space_mismatch_contradiction,
-#     _space_city_mismatch_contradiction).
+#   - a different street or point never contradicts it, because LaSSI measures no distances; a different town does,
+#     as for any source (policy v3, below: _places_derivably_disjoint).
 # This reading is specific to the source. It is not a general rule that "on X" implies "near X".
 
 
@@ -228,9 +228,6 @@ def _space_near_place_names(formula):
     return names if names else None
 
 def _space_mismatch_contradiction(lhs, rhs) -> bool:
-    # A Police.uk location is approximate, so a different place never contradicts it.
-    if _police_uk_record_label() is not None:
-        return False
     # If the two SPACE descriptors corefer (e.g. one names a place as a single
     # "<Locality> <Facility>" compound and the other decomposes it into a
     # [<Facility>, <Locality>] pair), they denote the same place and cannot be
@@ -300,9 +297,6 @@ def _space_city_mismatch_contradiction(lhs, rhs) -> bool:
     # ({A} vs {A,B}) is specificity rather than contradiction, so a contradiction
     # needs a place on EACH side with no counterpart on the other, and that pair
     # must be derivably distinct (see _places_derivably_disjoint).
-    # A Police.uk location is approximate, so a different place never contradicts it.
-    if _police_uk_record_label() is not None:
-        return False
     if _space_coreference_verdict(lhs, rhs) is not None:
         return False
     lhs_places = _space_place_values(lhs, near=False)
@@ -330,10 +324,13 @@ def _space_city_mismatch_contradiction(lhs, rhs) -> bool:
 #      Station" / "Haymarket") are one name;
 #   4. containment: a place inside the other (HOnK isA/partOf reachability via
 #      name_eq) is specificity, not contradiction.
-# Two distinct names conflict only when they are of the same, known kind
-# (street vs street, station vs station, settlement vs settlement): places of
-# one kind at one granularity do not overlap. Different or unknown kinds cannot
-# be shown disjoint, so the pair stays indifferent.
+# Two distinct names conflict only when both are settlements (towns, cities),
+# for every source, Police.uk included (labelling policy v3; Ellis and Oliver,
+# 23-24 Nov 2026, a declared change). A different street, station or other
+# facility on its own is not a contradiction: within one town, LaSSI measures no
+# distances, so it cannot show the event was not there (v4.4 also read street vs
+# street and station vs station as disjoint). Different or unknown kinds cannot
+# be shown disjoint either, so the pair stays indifferent.
 
 _STREET_TYPE_NOUNS_CACHE = None
 
@@ -445,8 +442,11 @@ def _class_typed_members():
 
 
 def _place_kind(name, value) -> str | None:
-    """The kind of place a name denotes, from its own class noun, else from its specification (e.g.
-    Haymarket[extra: Metro station]), else from a settlement NER type. None when it cannot be told."""
+    """The kind of place a name denotes: from its own class noun; else from its specification (e.g.
+    Haymarket[extra: Metro station]); else "settlement" when the sentence types it GPE; else from a HOnK class it is
+    listed in (Parmenides' "Haymarket isA metro station"). None when it cannot be told.
+    The sentence's GPE comes before HOnK's class (Oliver, 24 Nov: "GPE first"): Parmenides lists the towns
+    Sunderland, Whitley Bay and South Shields as Metro stations, and "in Sunderland" is a town."""
     streets = _street_type_nouns()
     classes = _place_class_nouns()
 
@@ -462,18 +462,18 @@ def _place_kind(name, value) -> str | None:
         return None
 
     kind = kind_of(name)
-    if kind is None and HOnKSingleton.isReady():
-        # A bare name typed by HOnK, e.g. Parmenides' "Haymarket isA metro station".
-        for c in sorted(_class_typed_members().get(name, ())):
-            kind = kind_of(c)
-            if kind is not None:
-                break
     if kind is None and value is not None:
         spec = getattr(value, "specification", None)
         if isinstance(spec, str):
             kind = kind_of(spec)
     if kind is None and value is not None and (getattr(value, "type", "") or "").upper() == "GPE":
         kind = "settlement"
+    if kind is None and HOnKSingleton.isReady():
+        # A bare name typed by HOnK, e.g. Parmenides' "Haymarket isA metro station".
+        for c in sorted(_class_typed_members().get(name, ())):
+            kind = kind_of(c)
+            if kind is not None:
+                break
     return kind
 
 
@@ -488,7 +488,8 @@ def _same_place(kb, a, b) -> bool:
 def _places_derivably_disjoint(lhs_places: dict, rhs_places: dict, require_unique_on_both: bool) -> bool:
     """`lhs_places`/`rhs_places` map a place name to its FVariable (or None).
     True only when some pair of specific names, one per side, has no
-    counterpart on the other side and is of the same known kind."""
+    counterpart on the other side and both are settlements (policy v3: a
+    different street, station or facility alone is not a contradiction)."""
     kb = HOnKSingleton.get() if HOnKSingleton.isReady() else None
     lhs = {n: v for n, v in lhs_places.items() if not _is_generic_place_name(n)}
     rhs = {n: v for n, v in rhs_places.items() if not _is_generic_place_name(n)}
@@ -503,11 +504,10 @@ def _places_derivably_disjoint(lhs_places: dict, rhs_places: dict, require_uniqu
         # A shared place: the descriptors overlap, which is not a contradiction.
         return False
     for ln, lv in lhs_unique.items():
-        lk = _place_kind(ln, lv)
-        if lk is None:
+        if _place_kind(ln, lv) != "settlement":
             continue
         for rn, rv in rhs_unique.items():
-            if _place_kind(rn, rv) == lk:
+            if _place_kind(rn, rv) == "settlement":
                 return True
     return False
 
