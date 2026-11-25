@@ -170,6 +170,127 @@ class ForecastsKeepTheirPlace(unittest.TestCase):
         self.assertTrue(SR._space_city_mismatch_contradiction(recorded(place("Newcastle", "at", "GPE")),
                                                               recorded(place("Sunderland", "at", "GPE"))))
 
+    def test_a_forecast_for_another_town_is_a_different_place(self):
+        # Not a contradiction, but not support either: the score is capped at NEE (DifferentPlaceScoresNEE).
+        self.assertTrue(SR._space_places_differ(MET_OFFICE, forecast_claim("Gateshead")))
+        self.assertFalse(SR._space_places_differ(MET_OFFICE, forecast_claim("Newcastle")))  # "upon Tyne" variant
+
+
+def inside(name, rel, ner, town):
+    """A place written inside a town, "<name>, <town>": eFOL keeps the town as the place's specification."""
+    t = {"on or near": FOr((STAY, NEAR)), "near": "near place", "at": "stay in place"}[rel]
+    return FVariable(name, ner, town, None, None, frozenset({("type", t)}))
+
+
+class PlaceInsideATown(unittest.TestCase):
+    """Policy v3.1 (Oliver, 24 Nov): "X, T" is a place inside T, and "GPE first" is for a bare GPE. CURB's crime_003_R:
+    Police.uk's "On or near Haymarket, Newcastle", which the parser types Haymarket(GPE)[extra: Newcastle], against
+    "near Eldon Square in Newcastle". T counts as a town only when the comparison set types it GPE somewhere."""
+
+    def setUp(self):
+        for p in (mock.patch.object(HOnKSingleton, "isReady", staticmethod(lambda: False)),
+                  mock.patch.object(HOnKSingleton, "get", staticmethod(lambda: STUB_HONK), create=True)):
+            p.start()
+            self.addCleanup(p.stop)
+        self.addCleanup(SR.set_doc_source, None, None)
+        self.addCleanup(SR.set_doc_gpe_names, ())
+        SR.set_doc_source("Police.uk", "On or near Haymarket, Newcastle")
+        SR.set_doc_gpe_names({"newcastle", "haymarket"})
+        self.ev = recorded(inside("Haymarket", "on or near", "GPE", "Newcastle"))
+
+    def test_the_place_lies_in_its_town(self):
+        self.assertEqual(SR._container_of(self.ev.properties and dict(self.ev.properties)["SPACE"][0]), "Newcastle")
+        self.assertIsNone(SR._place_kind("Haymarket", inside("Haymarket", "on or near", "GPE", "Newcastle")))
+        self.assertEqual(SR._place_kind("Haymarket", place("Haymarket", "near", "GPE")), "settlement")  # bare GPE
+
+    def test_against_another_place_in_the_same_town(self):
+        claim = recorded(place("Eldon Square", "near", "FAC"), place("Newcastle", "at", "GPE"))
+        self.assertFalse(SR._space_city_mismatch_contradiction(self.ev, claim))
+        self.assertFalse(SR._space_mismatch_contradiction(self.ev, claim))
+        self.assertTrue(SR._space_places_differ(self.ev, claim))  # NEE, not Supported
+
+    def test_against_another_town(self):
+        claim = recorded(place("Sunderland", "at", "GPE"))
+        self.assertTrue(SR._space_city_mismatch_contradiction(self.ev, claim))
+        self.assertTrue(SR._space_city_mismatch_contradiction(claim, self.ev))
+
+    def test_against_its_own_town(self):
+        claim = recorded(place("Newcastle", "at", "GPE"))
+        self.assertFalse(SR._space_city_mismatch_contradiction(self.ev, claim))
+        self.assertFalse(SR._space_places_differ(self.ev, claim))
+
+    def test_only_a_town_the_comparison_set_types_gpe(self):
+        SR.set_doc_gpe_names(())
+        self.assertIsNone(SR._container_of(inside("Haymarket", "on or near", "GPE", "Newcastle")))
+        SR.set_doc_gpe_names({"newcastle", "met office"})
+        self.assertIsNone(SR._container_of(v("Met Office", "GPE", spec="forecast")))  # not typed GPE anywhere
+        SR.set_doc_gpe_names({"newcastle", "station"})
+        self.assertIsNone(SR._container_of(v("Whitley Bay", "GPE", spec="station")))  # a class noun, even if typed GPE
+        self.assertIsNone(SR._container_of(v("Newcastle upon Tyne", "GPE", spec="Newcastle")))  # its own name
+
+
+def roadworks_on(street, ner):
+    """"Roadworks to install a new boundary box on <street>"."""
+    return FBinaryPredicate("install", FVariable("?1", "existential"), FVariable("boundary box", "noun"), 1.0,
+                            frozenset({("SPACE", (place(street, "at", ner),))}))
+
+
+class DifferentPlaceScoresNEE(unittest.TestCase):
+    """Policy v3.1 (Oliver, 24 Nov): "a different street gets NEE in the score". CURB's roadworks_007_R: "Roadworks to
+    install a new boundary box ... on Meadowdale Crescent" against the same works on Stakeford Lane scored 1.0 under
+    b52ab6f, since SPACE is not a BDD variable. The model count is stubbed at full entailment here."""
+
+    def setUp(self):
+        for p in (mock.patch.object(HOnKSingleton, "isReady", staticmethod(lambda: False)),
+                  mock.patch.object(HOnKSingleton, "get", staticmethod(lambda: STUB_HONK), create=True)):
+            p.start()
+            self.addCleanup(p.stop)
+        self.addCleanup(SR.set_doc_source, None, None)
+        SR.set_doc_source("Newcastle City Council Roadworks", None)
+
+    @staticmethod
+    def score(lhs, rhs):
+        from LaSSI.structures.extended_fol.TabularCWASemantics import TabularCWASemantics
+        t = TabularCWASemantics.__new__(TabularCWASemantics)
+        t.sentence_list = [lhs, rhs]
+        with mock.patch.object(TabularCWASemantics, "_raw_id_similarity", lambda self, i, j: 1.0):
+            return t.get_straightforward_id_similarity(0, 1)
+
+    def test_another_street_is_nee(self):
+        self.assertTrue(SR._space_places_differ(roadworks_on("Stakeford Lane", "LOC"),
+                                                roadworks_on("Meadowdale Crescent", "FAC")))
+        self.assertEqual(self.score(roadworks_on("Stakeford Lane", "LOC"), roadworks_on("Meadowdale Crescent", "FAC")),
+                         0.5)
+
+    def test_the_same_street_is_still_supported(self):
+        self.assertEqual(self.score(roadworks_on("Stakeford Lane", "LOC"), roadworks_on("Stakeford Lane", "FAC")), 1.0)
+
+    def test_another_town_is_still_refuted(self):
+        self.assertEqual(self.score(recorded(place("Newcastle", "at", "GPE")), recorded(place("Sunderland", "at", "GPE"))),
+                         0.0)
+
+    def test_a_police_uk_point_named_by_its_type_is_not_a_different_place(self):
+        # suite_c11: "On or near Bus/Coach Station, Leeds" against "near Leeds Bus Station" keeps its score. With HOnK's
+        # geo-suffix nouns the near-place rule compares "Bus/Coach" and "Leeds Bus"; the value still names the type.
+        SR.set_doc_source("Police.uk", "On Or Near Bus/Coach Station")
+        ev = recorded(inside("Bus/Coach Station", "on or near", "LOC", "Leeds"))
+        claim = recorded(place("Leeds Bus Station", "near", "LOC"))
+        honk = SimpleNamespace(**{**vars(STUB_HONK), "getGeoSuffixNouns": lambda: {"station"}})
+        for kb in (STUB_HONK, honk):
+            with mock.patch.object(HOnKSingleton, "get", staticmethod(lambda: kb), create=True):
+                self.assertFalse(SR._space_places_differ(ev, claim))
+                self.assertFalse(SR._space_places_differ(claim, ev))
+        SR.set_doc_source("Police.uk", "On Or Near Malvern Road")  # a street is a place, not a type
+        self.assertTrue(SR._space_places_differ(recorded(inside("Malvern Road", "on or near", "FAC", "Leeds")),
+                                                recorded(place("Balmoral Road", "near", "FAC"))))
+
+    def test_a_place_the_other_side_leaves_out_is_not_a_different_place(self):
+        street = recorded(place("Fenkle Street", "at", "FAC"), place("Newcastle", "at", "GPE"))
+        town = recorded(place("Newcastle", "at", "GPE"))
+        self.assertFalse(SR._space_places_differ(street, town))
+        self.assertFalse(SR._space_places_differ(town, street))
+        self.assertEqual(self.score(street, town), 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()

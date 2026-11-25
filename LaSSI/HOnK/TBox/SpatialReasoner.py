@@ -21,6 +21,20 @@ def set_doc_geo_names(names) -> None:
     )
 
 
+# Names (lowercase) that the current comparison set types GPE somewhere. Set by TabularCWASemantics before the
+# constituent comparisons, which read it through _container_of: "On or near Haymarket, Newcastle" reaches eFOL as
+# Haymarket[specification: "Newcastle"], with the extra's type dropped, and "Newcastle" typed GPE in another
+# sentence tells that the extra is a town.
+_DOC_GPE_NAMES: frozenset = frozenset()
+
+
+def set_doc_gpe_names(names) -> None:
+    global _DOC_GPE_NAMES
+    _DOC_GPE_NAMES = frozenset(
+        n.strip().lower() for n in (names or ()) if isinstance(n, str) and n.strip()
+    )
+
+
 # The evidence's source and location label, from the dataset's sidecar (set by LaSSI per dataset).
 _DOC_SOURCE = None
 _DOC_LOCATION = None
@@ -526,12 +540,31 @@ def _class_typed_members():
     return _CLASS_TYPED_MEMBERS_CACHE
 
 
+def _container_of(value) -> str | None:
+    """The town a SPACE value is written inside: T for "X, T", which eFOL carries as X[specification: T]
+    ("On or near Haymarket, Newcastle"), when the comparison set types T GPE somewhere (_DOC_GPE_NAMES). None
+    otherwise, so a class noun ("Whitley Bay[extra: station]") or another extra ("Met Office[extra: forecast]") is
+    not a town. Policy v3.1 (Oliver, 24 Nov): "X, T" is a place inside T."""
+    spec = getattr(value, "specification", None)
+    if not isinstance(spec, str) or not spec.strip():
+        return None
+    t = spec.strip()
+    if t.lower() not in _DOC_GPE_NAMES or _is_generic_place_name(t):
+        return None
+    name = getattr(value, "name", None)
+    if isinstance(name, str) and _normalised_place_name(name) == _normalised_place_name(t):
+        return None
+    return t
+
+
 def _place_kind(name, value) -> str | None:
     """The kind of place a name denotes: from its own class noun; else from its specification (e.g.
     Haymarket[extra: Metro station]); else "settlement" when the sentence types it GPE; else from a HOnK class it is
     listed in (Parmenides' "Haymarket isA metro station"). None when it cannot be told.
     The sentence's GPE comes before HOnK's class (Oliver, 24 Nov: "GPE first"): Parmenides lists the towns
-    Sunderland, Whitley Bay and South Shields as Metro stations, and "in Sunderland" is a town."""
+    Sunderland, Whitley Bay and South Shields as Metro stations, and "in Sunderland" is a town. "GPE first" is for a
+    bare GPE: one written inside a town ("Haymarket, Newcastle", see _container_of) lies in that town, so it is not
+    read as a town itself (policy v3.1; Oliver, 24 Nov)."""
     streets = _street_type_nouns()
     classes = _place_class_nouns()
 
@@ -551,7 +584,8 @@ def _place_kind(name, value) -> str | None:
         spec = getattr(value, "specification", None)
         if isinstance(spec, str):
             kind = kind_of(spec)
-    if kind is None and value is not None and (getattr(value, "type", "") or "").upper() == "GPE":
+    if (kind is None and value is not None and (getattr(value, "type", "") or "").upper() == "GPE"
+            and _container_of(value) is None):
         kind = "settlement"
     if kind is None and HOnKSingleton.isReady():
         # A bare name typed by HOnK, e.g. Parmenides' "Haymarket isA metro station".
@@ -575,13 +609,9 @@ def _places_derivably_disjoint(lhs_places: dict, rhs_places: dict, require_uniqu
     True only when some pair of specific names, one per side, has no
     counterpart on the other side and both are settlements (policy v3: a
     different street, station or facility alone is not a contradiction)."""
-    kb = HOnKSingleton.get() if HOnKSingleton.isReady() else None
-    lhs = {n: v for n, v in lhs_places.items() if not _is_generic_place_name(n)}
-    rhs = {n: v for n, v in rhs_places.items() if not _is_generic_place_name(n)}
+    lhs, rhs, lhs_unique, rhs_unique = _unique_places(lhs_places, rhs_places)
     if not lhs or not rhs:
         return False
-    lhs_unique = {n: v for n, v in lhs.items() if not any(_same_place(kb, n, o) for o in rhs)}
-    rhs_unique = {n: v for n, v in rhs.items() if not any(_same_place(kb, n, o) for o in lhs)}
     if require_unique_on_both:
         if not lhs_unique or not rhs_unique:
             return False
@@ -597,10 +627,48 @@ def _places_derivably_disjoint(lhs_places: dict, rhs_places: dict, require_uniqu
     return False
 
 
+def _unique_places(lhs_places: dict, rhs_places: dict):
+    """(lhs, rhs, lhs_unique, rhs_unique): each side's specific places (generic class nouns dropped), and those with
+    no counterpart on the other side (same name, spelling variant, or a HOnK-compatible name)."""
+    kb = HOnKSingleton.get() if HOnKSingleton.isReady() else None
+    lhs = {n: v for n, v in lhs_places.items() if not _is_generic_place_name(n)}
+    rhs = {n: v for n, v in rhs_places.items() if not _is_generic_place_name(n)}
+    lhs_unique = {n: v for n, v in lhs.items() if not any(_same_place(kb, n, o) for o in rhs)}
+    rhs_unique = {n: v for n, v in rhs.items() if not any(_same_place(kb, n, o) for o in lhs)}
+    return lhs, rhs, lhs_unique, rhs_unique
+
+
+def _space_places_differ(lhs, rhs) -> bool:
+    """True when each side names a specific place that the other doesn't, whether or not the two can be shown
+    disjoint: another street, station or facility in the same town, or a forecast's other town. That is not a
+    contradiction (policy v3), but the evidence doesn't support the claim's place either, so the score is capped at
+    NEE (TabularCWASemantics.get_straightforward_id_similarity; policy v3.1, Oliver, 24 Nov: "a different street gets
+    NEE in the score"). One side naming a place the other leaves out ("on Fenkle Street in Newcastle" against "in
+    Newcastle") is not a different place, and descriptors that corefer are one place. Nor is a Police.uk map point
+    named by its type ("Bus/Coach Station"): it names a kind of place, not which one, like a class noun."""
+    if _space_coreference_verdict(lhs, rhs) is not None:
+        return False
+
+    def specific(places):
+        return {n: v for n, v in places.items()
+                if not (_is_police_uk_type_label(n) or _is_police_uk_type_label(getattr(v, "name", None)))}
+
+    for near in (True, False):
+        lhs_places = _space_place_values(lhs, near=near)
+        rhs_places = _space_place_values(rhs, near=near)
+        if lhs_places and rhs_places:
+            _, _, lhs_unique, rhs_unique = _unique_places(lhs_places, rhs_places)
+            if specific(lhs_unique) and specific(rhs_unique):
+                return True
+    return False
+
+
 def _space_place_values(formula, near: bool):
     """Name -> FVariable for the SPACE places that the near-place rule
     (`near=True`) or the named-entity rule (`near=False`) compares; the same
-    selection as `_space_near_place_names` / `_space_named_geo_entities`."""
+    selection as `_space_near_place_names` / `_space_named_geo_entities`.
+    A place written inside a town ("Haymarket, Newcastle": see _container_of)
+    also names that town, as a GPE (policy v3.1)."""
     names = _space_near_place_names(formula) if near else _space_named_geo_entities(formula)
     if not names:
         return None
@@ -614,7 +682,12 @@ def _space_place_values(formula, near: bool):
                 stripped = _strip_geo_generic_suffix(v.name)
                 if stripped:
                     values.setdefault(stripped.strip(), v)
-    return {n: values.get(n) for n in names}
+    out = {n: values.get(n) for n in names}
+    for n in names:
+        town = _container_of(values.get(n))
+        if town is not None:
+            out.setdefault(town, FVariable(town, "GPE"))
+    return out
 
 def _geo_names_compatible(kb, lhs_name: str, rhs_name: str) -> bool:
     """Compare location names exactly first, then case-fold as a fallback.

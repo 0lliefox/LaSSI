@@ -210,6 +210,10 @@ class TabularCWASemantics:
         # nonNegatedObjects = list(map(self.minimal_constituents.fromId, [x for x in range(N) if x not in self.negations]))
         nonNegatedObjects = sorted(
             {x: self.minimal_constituents.fromId(x) for x in range(N) if x not in self.negations}.items())
+        # The towns the comparison set names, before the constituent comparisons read them (SpatialReasoner.
+        # _container_of: "Haymarket, Newcastle" is a place inside Newcastle).
+        from LaSSI.HOnK.TBox.SpatialReasoner import set_doc_gpe_names
+        set_doc_gpe_names(self._doc_place_names()[1])
         self.ec = ExpandConstituents(self.cache_folder, nonNegatedObjects)
 
         self._init_bdd()
@@ -222,17 +226,26 @@ class TabularCWASemantics:
         be recognised as a location for SPACE-contradiction detection (the
         cross-row gazetteer nondeterminism), without treating generic facility
         nouns (never geo-typed anywhere) as locations."""
-        from LaSSI.HOnK.TBox.SpatialReasoner import set_doc_geo_names, _GEO_TYPES
+        from LaSSI.HOnK.TBox.SpatialReasoner import set_doc_geo_names
+        set_doc_geo_names(self._doc_place_names()[0])
+
+    def _doc_place_names(self):
+        """(geo, gpe): the lowercased entity names typed LOC/GPE/FAC, and those typed GPE, anywhere in the
+        comparison set."""
+        from LaSSI.HOnK.TBox.SpatialReasoner import _GEO_TYPES
         from LaSSI.structures.extended_fol.Formulae import (
             FVariable, FUnaryPredicate, FBinaryPredicate, FNot, FAnd, FOr,
         )
         geo_names = set()
+        gpe_names = set()
 
         def _collect(obj):
             if isinstance(obj, FVariable):
                 if (isinstance(obj.name, str) and obj.name and not obj.name.startswith("?")
                         and (obj.type or "").upper() in _GEO_TYPES):
                     geo_names.add(obj.name.strip().lower())
+                    if (obj.type or "").upper() == "GPE":
+                        gpe_names.add(obj.name.strip().lower())
                 for _k, _v in (obj.properties or ()):
                     _collect(_v)
             elif isinstance(obj, FUnaryPredicate):
@@ -255,7 +268,7 @@ class TabularCWASemantics:
 
         for s in self.sentence_list:
             _collect(s)
-        set_doc_geo_names(geo_names)
+        return geo_names, gpe_names
 
     def _init_bdd(self):
         """Build the BDD manager, declare one boolean variable per non-negated
@@ -700,8 +713,12 @@ class TabularCWASemantics:
                 # distinguishing content means the events are distinct.
                 val = 0.5
         if val > 0.5:
-            from LaSSI.HOnK.TBox.SpatialReasoner import _space_relation_narrowing
+            from LaSSI.HOnK.TBox.SpatialReasoner import _space_relation_narrowing, _space_places_differ
             if _space_relation_narrowing(self.sentence_list[i], self.sentence_list[j]):
+                val = 0.5
+            # Another street, station or facility (or a forecast's other town) is not a contradiction (policy v3),
+            # and SPACE is not a BDD variable, so the count above never sees it: cap it at NEE (policy v3.1).
+            elif _space_places_differ(self.sentence_list[i], self.sentence_list[j]):
                 val = 0.5
         return val
 
