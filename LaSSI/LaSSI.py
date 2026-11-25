@@ -646,9 +646,13 @@ class LaSSI():
                 row_vals = []
                 for col_j, col_y in enumerate(obj_list):
                     cell_t0 = time.time()
-                    val = f(row_x, col_y)
+                    # A sentence LaSSI could not parse ("ERROR", _internal_graph) has no form, so a pair with it has no
+                    # score (Oliver, 25 Nov: "Fix LaSSI + scorer check"). Before, every failed form was the same None
+                    # key in TabularCWASemantics.sentence_to_id with no atoms, so the model count read it as true and
+                    # the evidence "entailed" it at 1.0 (job 2943728).
+                    val = None if (row_x is None or col_y is None) else f(row_x, col_y)
                     cell_elapsed = time.time() - cell_t0
-                    if matrix is not None:
+                    if matrix is not None and val is not None:
                         returned = matrix[row_i][col_j]
                         if (returned == 0.0 or returned == 1.0) and (returned == val):
                             print(f"OK: {row_i} {col_j} with {val} (expected: {returned})")
