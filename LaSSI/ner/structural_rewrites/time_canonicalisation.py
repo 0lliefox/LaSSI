@@ -43,8 +43,9 @@ def _fold_utc_clock_times(items):
     the clock time into the date's ISO value (2026-04-14T17:00:00Z) but leaves "5pm UTC" as a TIME entry of its own,
     which the dedup by ISO string can't merge. When an ISO entry in the same list holds that UTC clock time, the two
     are the same instant: the clock entry's properties the ISO entry lacks (its case marker, e.g. ``14:at``) move
-    onto the ISO entry, and the clock entry is dropped. A clock time no ISO entry holds is kept as it is.
-    Returns (items, folded)."""
+    onto the ISO entry, and the clock entry is dropped. A clock time no ISO entry holds is kept as it is. The list
+    stays a list, as the dedup leaves it when two entries merge into one: every kernel property is iterated as a list
+    downstream (KernelPostProcessor.remove_duplicate_properties)."""
     iso = [k for k, it in enumerate(items)
            if isinstance(it, Singleton) and _is_date(it)
            and canonicalize_datetime_string(getattr(it, "named_entity", None)) == it.named_entity]
@@ -64,7 +65,7 @@ def _fold_utc_clock_times(items):
             props.setdefault(key, val)
         out[k] = out[k].update_node_props(props)
         drop.add(i)
-    return [it for i, it in enumerate(out) if i not in drop], bool(drop)
+    return [it for i, it in enumerate(out) if i not in drop]
 
 
 def _canonicalize_singleton_datetime(item):
@@ -190,7 +191,7 @@ class TimeCanonicalisationRule(StructuralRewriteRule):
                     item = item.update_node_props(props)
             cleaned.append(item)
         # A clock time stated in UTC that an ISO entry already holds is that entry (policy v3.1).
-        cleaned, folded = _fold_utc_clock_times(cleaned)
+        cleaned = _fold_utc_clock_times(cleaned)
         # Second pass: dedupe by named_entity, keeping the richer entry.
         by_name = {}
         for item in cleaned:
@@ -204,9 +205,8 @@ class TimeCanonicalisationRule(StructuralRewriteRule):
         # rather than always coercing to a list — downstream code branches on
         # `isinstance(value, (list, tuple))` and corrupting a previously bare
         # TIME entry into a list trips up the FOL expansion lookup keys.
-        # A list the UTC fold left with one entry becomes that entry, as the same sentence without "UTC" parses.
         original = props.get('TIME')
-        if (isinstance(original, (list, tuple)) and not (folded and len(deduped) == 1)) or len(deduped) > 1:
+        if isinstance(original, (list, tuple)) or len(deduped) > 1:
             props['TIME'] = deduped
         else:
             props['TIME'] = deduped[0]
