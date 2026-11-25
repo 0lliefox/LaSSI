@@ -4,6 +4,8 @@ __license__ = "GPL"
 __version__ = "2.0"
 __maintainer__ = "Oliver R. Fox"
 
+import re
+
 from LaSSI.ner.structural_rewrites.base import StructuralRewriteRule, is_date_like
 from LaSSI.structures.internal_graph.EntityRelationship import Singleton
 from LaSSI.utils.datetime_canon import canonicalize_datetime_string
@@ -13,6 +15,56 @@ from LaSSI.utils.datetime_canon import canonicalize_datetime_string
 # replaced spelled the NER source "SUTime" unuppercased, so it silently never
 # matched a SUTIME-typed node.
 _is_date = is_date_like
+
+# A clock time a sentence states in UTC: "5pm UTC", "11:30am GMT", "noon UTC".
+_UTC_CLOCK_RE = re.compile(
+    r"^\s*(?:(?P<h>\d{1,2})(?:[:.](?P<m>\d{2}))?\s*(?P<ap>am|pm)|(?P<word>noon|midday|midnight))\s+(?:utc|gmt)\s*$",
+    re.IGNORECASE,
+)
+
+
+def _utc_clock(name):
+    """The (hour, minute) of a clock time stated in UTC (``"5pm UTC"`` -> (17, 0)), or ``None``."""
+    if not isinstance(name, str):
+        return None
+    m = _UTC_CLOCK_RE.match(name.replace("<dot>", "."))
+    if m is None:
+        return None
+    if m.group("word"):
+        return (0, 0) if m.group("word").lower() == "midnight" else (12, 0)
+    h, mi = int(m.group("h")), int(m.group("m") or 0)
+    if not (1 <= h <= 12 and 0 <= mi <= 59):
+        return None
+    return (h % 12 + (12 if m.group("ap").lower() == "pm" else 0), mi)
+
+
+def _fold_utc_clock_times(items):
+    """Policy v3.1: a claim's time is read in the zone it states. For "at 5pm UTC on 14 April 2026", SUTime folds
+    the clock time into the date's ISO value (2026-04-14T17:00:00Z) but leaves "5pm UTC" as a TIME entry of its own,
+    which the dedup by ISO string can't merge. When an ISO entry in the same list holds that UTC clock time, the two
+    are the same instant: the clock entry's properties the ISO entry lacks (its case marker, e.g. ``14:at``) move
+    onto the ISO entry, and the clock entry is dropped. A clock time no ISO entry holds is kept as it is.
+    Returns (items, folded)."""
+    iso = [k for k, it in enumerate(items)
+           if isinstance(it, Singleton) and _is_date(it)
+           and canonicalize_datetime_string(getattr(it, "named_entity", None)) == it.named_entity]
+    out, drop = list(items), set()
+    for i, it in enumerate(items):
+        if not (isinstance(it, Singleton) and _is_date(it)):
+            continue
+        hm = _utc_clock(getattr(it, "named_entity", None))
+        if hm is None:
+            continue
+        same = [k for k in iso if out[k].named_entity[11:16] == f"{hm[0]:02d}:{hm[1]:02d}"]
+        if not same:
+            continue
+        k = same[0]
+        props = dict(out[k].properties)
+        for key, val in dict(it.properties).items():
+            props.setdefault(key, val)
+        out[k] = out[k].update_node_props(props)
+        drop.add(i)
+    return [it for i, it in enumerate(out) if i not in drop], bool(drop)
 
 
 def _canonicalize_singleton_datetime(item):
@@ -40,7 +92,7 @@ def _canonicalize_singleton_datetime(item):
 class TimeCanonicalisationRule(StructuralRewriteRule):
     """Canonicalise TIME property values on the kernel.
 
-    Three cleanups, all driven by the fact that SUTime/CoreNLP collapses
+    Four cleanups, all driven by the fact that SUTime/CoreNLP collapses
     surface mentions like "8pm" and "14 April 2026" into the same ISO 8601
     string (e.g. ``2026-04-14T20-0``).  Anything those mentions added that
     is already encoded in the ISO form is redundant noise:
@@ -65,7 +117,10 @@ class TimeCanonicalisationRule(StructuralRewriteRule):
       typically the year-only duplicate ("2026") which carries no useful
       case info.  Canonicalising the named_entity FIRST is essential — two
       entries that only differed by surface form (``T14:00Z`` vs ``T14-0``)
-      otherwise stayed as separate dictionary keys here and survived dedup."""
+      otherwise stayed as separate dictionary keys here and survived dedup.
+
+    * **Fold a clock time stated in UTC** ("5pm UTC") into the ISO entry that
+      holds that UTC clock time (policy v3.1; see ``_fold_utc_clock_times``)."""
 
     name = "time_canonicalisation"
     phase = "post_logical_rewrite"
@@ -134,6 +189,8 @@ class TimeCanonicalisationRule(StructuralRewriteRule):
                     props = {k: v for k, v in props.items() if k != 'nummod'}
                     item = item.update_node_props(props)
             cleaned.append(item)
+        # A clock time stated in UTC that an ISO entry already holds is that entry (policy v3.1).
+        cleaned, folded = _fold_utc_clock_times(cleaned)
         # Second pass: dedupe by named_entity, keeping the richer entry.
         by_name = {}
         for item in cleaned:
@@ -147,8 +204,9 @@ class TimeCanonicalisationRule(StructuralRewriteRule):
         # rather than always coercing to a list — downstream code branches on
         # `isinstance(value, (list, tuple))` and corrupting a previously bare
         # TIME entry into a list trips up the FOL expansion lookup keys.
+        # A list the UTC fold left with one entry becomes that entry, as the same sentence without "UTC" parses.
         original = props.get('TIME')
-        if isinstance(original, (list, tuple)) or len(deduped) > 1:
+        if (isinstance(original, (list, tuple)) and not (folded and len(deduped) == 1)) or len(deduped) > 1:
             props['TIME'] = deduped
         else:
             props['TIME'] = deduped[0]
