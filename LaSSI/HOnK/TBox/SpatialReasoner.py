@@ -273,7 +273,41 @@ def _has_near_place(fvar) -> bool:
                 return True
     return False
 
+def _space_view(formula):
+    """The formula the SPACE selectors read a sentence's places from: a predicate as it is, and for a conjunction a
+    predicate holding the SPACE values of its parts that are not negated (nested conjunctions included), in order and
+    without repeats.
+
+    RewriteKernels writes a sentence whose source or target is "X and Y", or that carries a SENTENCE, as a conjunction:
+    "Roadworks on Stakeford Lane: Excavate on service to install new boundary box ..." is FAnd(be(Roadworks,
+    excavate)[SPACE: Stakeford Lane], be(Roadworks, install)[SPACE: Stakeford Lane], ...) (CURB roadworks_007). The
+    sentence-level place tests (the town contradictions and the NEE cap for another place) found no place on it, so
+    another street scored 1.0 (job 2943727). The places of a negated part are inside the negation's scope, so they are
+    not the conjunction's places. A negation or a disjunction is returned as it is."""
+    if not isinstance(formula, FAnd):
+        return formula
+    values = []
+
+    def collect(f):
+        if isinstance(f, FAnd):
+            for a in f.args:
+                collect(a)
+        elif isinstance(f, (FBinaryPredicate, FUnaryPredicate)):
+            for k, vs in (f.properties or ()):
+                if k == "SPACE":
+                    for v in (vs if isinstance(vs, tuple) else (vs,)):
+                        if v not in values:
+                            values.append(v)
+
+    collect(formula)
+    if not values:
+        return formula
+    return FBinaryPredicate("and", FVariable("?", "existential"), FVariable("?", "existential"), 1.0,
+                            frozenset({("SPACE", tuple(values))}))
+
+
 def _space_near_place_names(formula):
+    formula = _space_view(formula)
     if not isinstance(formula, (FBinaryPredicate, FUnaryPredicate)):
         return None
     if not formula.properties:
@@ -337,6 +371,7 @@ def _space_mismatch_contradiction(lhs, rhs) -> bool:
     return _places_derivably_disjoint(lhs_places, rhs_places, require_unique_on_both=False)
 
 def _space_named_geo_entities(formula):
+    formula = _space_view(formula)
     if not isinstance(formula, (FBinaryPredicate, FUnaryPredicate)):
         return None
     if not formula.properties:
@@ -669,6 +704,7 @@ def _space_place_values(formula, near: bool):
     selection as `_space_near_place_names` / `_space_named_geo_entities`.
     A place written inside a town ("Haymarket, Newcastle": see _container_of)
     also names that town, as a GPE (policy v3.1)."""
+    formula = _space_view(formula)
     names = _space_near_place_names(formula) if near else _space_named_geo_entities(formula)
     if not names:
         return None
@@ -729,9 +765,10 @@ def _geo_names_compatible(kb, lhs_name: str, rhs_name: str) -> bool:
 
 def _space_geo_values(formula):
     """Return the list of FVariable values under the SPACE property key of a
-    predicate (unwrapping FNot)."""
+    predicate (unwrapping FNot), or of a conjunction's parts (_space_view)."""
     if isinstance(formula, FNot):
         formula = formula.arg
+    formula = _space_view(formula)
     if not isinstance(formula, (FBinaryPredicate, FUnaryPredicate)):
         return []
     if not formula.properties:

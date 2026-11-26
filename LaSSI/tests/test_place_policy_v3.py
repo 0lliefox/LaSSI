@@ -11,7 +11,7 @@ from unittest import mock
 
 import LaSSI.HOnK.TBox.SpatialReasoner as SR
 from LaSSI.HOnK.HOnK import HOnKSingleton
-from LaSSI.structures.extended_fol.Formulae import FAnd, FBinaryPredicate, FOr, FVariable
+from LaSSI.structures.extended_fol.Formulae import FAnd, FBinaryPredicate, FNot, FOr, FVariable
 
 STAY = FVariable("stay in place", "logical_type", None, None, None, frozenset())
 NEAR = FVariable("near place", "logical_type", None, None, None, frozenset())
@@ -235,10 +235,8 @@ def roadworks_on(street, ner):
                             frozenset({("SPACE", (place(street, "at", ner),))}))
 
 
-class DifferentPlaceScoresNEE(unittest.TestCase):
-    """Policy v3.1 (Oliver, 24 Nov): "a different street gets NEE in the score". CURB's roadworks_007_R: "Roadworks to
-    install a new boundary box ... on Meadowdale Crescent" against the same works on Stakeford Lane scored 1.0 under
-    b52ab6f, since SPACE is not a BDD variable. The model count is stubbed at full entailment here."""
+class _StubbedCount:
+    """HOnK not ready, a roadworks source, and the model count stubbed at full entailment."""
 
     def setUp(self):
         for p in (mock.patch.object(HOnKSingleton, "isReady", staticmethod(lambda: False)),
@@ -255,6 +253,12 @@ class DifferentPlaceScoresNEE(unittest.TestCase):
         t.sentence_list = [lhs, rhs]
         with mock.patch.object(TabularCWASemantics, "_raw_id_similarity", lambda self, i, j: 1.0):
             return t.get_straightforward_id_similarity(0, 1)
+
+
+class DifferentPlaceScoresNEE(_StubbedCount, unittest.TestCase):
+    """Policy v3.1 (Oliver, 24 Nov): "a different street gets NEE in the score". CURB's roadworks_007_R: "Roadworks to
+    install a new boundary box ... on Meadowdale Crescent" against the same works on Stakeford Lane scored 1.0 under
+    b52ab6f, since SPACE is not a BDD variable. The model count is stubbed at full entailment here."""
 
     def test_another_street_is_nee(self):
         self.assertTrue(SR._space_places_differ(roadworks_on("Stakeford Lane", "LOC"),
@@ -290,6 +294,110 @@ class DifferentPlaceScoresNEE(unittest.TestCase):
         self.assertFalse(SR._space_places_differ(street, town))
         self.assertFalse(SR._space_places_differ(town, street))
         self.assertEqual(self.score(street, town), 1.0)
+
+
+def works(*parts):
+    """Roadworks written as a conjunction, as RewriteKernels writes "Roadworks on X: excavate ... to install ...":
+    one be(Roadworks, <verb>)[SPACE: <street>] per (verb, street, NER type), or its negation for a leading "not"."""
+    out = []
+    for verb, street, ner in parts:
+        neg = verb.startswith("not ")
+        p = FBinaryPredicate("be", FVariable("roadworks", "noun"), FVariable(verb.removeprefix("not "), "verb"), 1.0,
+                             frozenset({("SPACE", (place(street, "at", ner),))}))
+        out.append(FNot(p) if neg else p)
+    return FAnd(tuple(out))
+
+
+class ConjunctionPlaces(_StubbedCount, unittest.TestCase):
+    """A conjunction's places are those of its parts that are not negated (SpatialReasoner._space_view). CURB's
+    roadworks_007_R kept 1.0 after 6b3ea26 (job 2943727): the evidence's target is "excavate ... to install ...", so
+    RewriteKernels writes it as FAnd(be(Roadworks, excavate)[SPACE: Stakeford Lane], be(Roadworks, install)[SPACE:
+    Stakeford Lane]), and the place tests read a place from a predicate only."""
+
+    def test_a_conjunction_sharing_a_place_is_read_for_it(self):
+        ev = works(("excavate", "Stakeford Lane", "LOC"), ("install", "Stakeford Lane", "LOC"))
+        claim = roadworks_on("Meadowdale Crescent", "FAC")
+        self.assertTrue(SR._space_places_differ(ev, claim))
+        self.assertTrue(SR._space_places_differ(claim, ev))
+        self.assertEqual(self.score(ev, claim), 0.5)
+        self.assertEqual(self.score(claim, ev), 0.5)
+
+    def test_the_same_street_in_a_conjunction_is_still_supported(self):
+        ev = works(("excavate", "Stakeford Lane", "LOC"), ("install", "Stakeford Lane", "LOC"))
+        self.assertEqual(self.score(ev, roadworks_on("Stakeford Lane", "FAC")), 1.0)
+
+    def test_a_conjunction_whose_parts_name_different_places_has_both(self):
+        ev = works(("excavate", "Stakeford Lane", "LOC"), ("install", "Meadowdale Crescent", "LOC"))
+        self.assertEqual(self.score(ev, roadworks_on("Meadowdale Crescent", "FAC")), 1.0)  # one of its places
+        self.assertEqual(self.score(ev, roadworks_on("Fern Drive", "FAC")), 0.5)
+
+    def test_a_negated_part_does_not_give_the_conjunction_its_place(self):
+        ev = works(("excavate", "Stakeford Lane", "LOC"), ("not install", "Meadowdale Crescent", "LOC"))
+        self.assertTrue(SR._space_places_differ(ev, roadworks_on("Meadowdale Crescent", "FAC")))
+
+    def test_another_town_in_a_conjunction_is_refuted(self):
+        ev = FAnd((recorded(place("Newcastle", "at", "GPE")), recorded(place("Newcastle", "at", "GPE"),
+                                                                       place("Fenkle Street", "at", "FAC"))))
+        self.assertEqual(self.score(ev, recorded(place("Sunderland", "at", "GPE"))), 0.0)
+        self.assertEqual(self.score(ev, recorded(place("Newcastle", "at", "GPE"))), 1.0)
+
+    def test_a_predicate_reads_as_before(self):
+        p = roadworks_on("Stakeford Lane", "LOC")
+        self.assertIs(SR._space_view(p), p)
+        n = FNot(p)
+        self.assertIs(SR._space_view(n), n)  # a negated sentence is left as it is
+        no_place = FAnd((FBinaryPredicate("be", v("roadworks", "noun"), v("excavate", "verb"), 1.0, frozenset()),))
+        self.assertIs(SR._space_view(no_place), no_place)
+
+
+class ConjunctionThroughTheRewrite(_StubbedCount, unittest.TestCase):
+    """From the kernel through RewriteKernels to the score, as LaSSI runs it: "Roadworks on Stakeford Lane: excavate
+    ... install ..." against works on another street (CURB roadworks_007) and on the same street. The model count is
+    stubbed at full entailment; RewriteKernels gets no HOnK verb lists."""
+
+    @staticmethod
+    def rewrite(target, street, ner, marker):
+        from collections import defaultdict
+        from LaSSI.ner.node_functions import create_props_for_singleton
+        from LaSSI.structures.extended_fol.rewrite_kernels import RewriteKernels
+        from LaSSI.structures.internal_graph.EntityRelationship import Grouping, Relationship, SetOfSingletons, Singleton
+
+        def node(i, name, t, **props):
+            return Singleton(id=i, named_entity=name, properties=create_props_for_singleton(props), min=i, max=i,
+                             type=t, confidence=1.0, kernel=None)
+
+        dst = (SetOfSingletons(id=20, type=Grouping.AND, entities=[node(6 + k, x, "verb") for k, x in enumerate(target)],
+                               min=6, max=6 + len(target), confidence=1.0)
+               if len(target) > 1 else node(6, target[0], "verb"))
+        kernel = Singleton(id=100, named_entity="", min=-1, max=-1, type="SENTENCE", confidence=1,
+                           properties=create_props_for_singleton({"SPACE": [node(3, street, ner, type="stay in place",
+                                                                                 **{"2": marker})]}),
+                           kernel=Relationship(source=node(1, "Roadworks", "noun"), target=dst,
+                                               edgeLabel=node(2, "be", "verb"), isNegated=False))
+        rk = RewriteKernels.__new__(RewriteKernels)
+        rk.useId, rk.meu_db_row, rk.obj = False, None, kernel
+        rk.e = SimpleNamespace(increaseAndGetExistential=iter(range(1, 100)).__next__)
+        rk.p = SimpleNamespace(state_verbs=set(), transitive_verbs=set(), movement_verbs=set(), phrasal_verbs=set(),
+                               causative_verbs=set(), semi_modal_verbs=set(), means_verbs=set(),
+                               materialisation_verbs=set())
+        rk.dmin, rk.dmax, rk.dpos = kernel.update_map(defaultdict(lambda: 10000000), defaultdict(lambda: -1),
+                                                      defaultdict(lambda: 10000000))
+        return rk.rewrite_kernels(kernel)
+
+    def test_the_rewrite_makes_the_conjunction(self):
+        ev = self.rewrite(["excavate", "install"], "Stakeford Lane", "LOC", "on")
+        self.assertIsInstance(ev, FAnd)
+        self.assertEqual(len(ev.args), 2)
+
+    def test_another_street_scores_nee_through_the_rewrite(self):
+        ev = self.rewrite(["excavate", "install"], "Stakeford Lane", "LOC", "on")
+        claim = self.rewrite(["underway"], "Meadowdale Crescent", "FAC", "on")
+        self.assertEqual(self.score(ev, claim), 0.5)
+
+    def test_the_same_street_scores_as_before_through_the_rewrite(self):
+        ev = self.rewrite(["excavate", "install"], "Stakeford Lane", "LOC", "on")
+        claim = self.rewrite(["underway"], "Stakeford Lane", "FAC", "on")
+        self.assertEqual(self.score(ev, claim), 1.0)
 
 
 if __name__ == "__main__":
