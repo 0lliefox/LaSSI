@@ -68,9 +68,9 @@ def _police_uk_map_point_types():
 # Anonymisation"). So, for a Police.uk record, "On or near X" is read as the vicinity of X, in both arms:
 #   - it fully supports "near X" (and "on or near X"), but not "on X" or "at X" (_space_relation_narrowing);
 #   - a point named only by its type ("Parking Area", "Bus/Coach Station") is never the same place as a named place
-#     (_spaces_corefer);
-#   - a different street or point never contradicts it, because LaSSI measures no distances; a different town does,
-#     as for any source (policy v3, below: _places_derivably_disjoint).
+#     (_spaces_corefer), and a sentence naming a specific place against it is NEE (_type_point_against_specific_place);
+#   - a different street or point never contradicts it, because LaSSI measures no distances; a different town does
+#     only for the same incident, as for any source (below: _places_derivably_disjoint, _same_incident).
 # This reading is specific to the source. It is not a general rule that "on X" implies "near X".
 
 
@@ -95,6 +95,35 @@ def _is_police_uk_record_point(name) -> bool:
     """True when `name` is the record's map-point name, whether a street or a type of place."""
     label = _police_uk_record_label()
     return label is not None and isinstance(name, str) and _name_tokens(name) == _name_tokens(label)
+
+
+def _negated_place_in_the_vicinity(lhs, rhs) -> bool:
+    """True when the evidence is a Police.uk record and the other sentence, negated as a whole, says no such crime was
+    recorded on, at or in a place the record only puts the crime near: its own point X, or, when X is only a type of
+    place, a specific street, station or site (_specific_place). The record places the crime in the vicinity of X, not
+    on or at it, so the two can both be true: Not Enough Evidence, not a contradiction (labelling policy v3.1's Police.uk
+    table: "that no such crime was recorded on or at X"; CURB's crime_006_R, A13, final NEE). A negated "near X" or "on
+    or near X" stays a contradiction ("that no such crime was recorded near X": Refuted, crime_005_R). The relation is the
+    SPACE value's type: "on", "in" and "at" give "stay in place" (raw_data/logical_analysis.json); "inside" and
+    "outside" have no rule of their own, so they carry no relation and are not read here."""
+    if _police_uk_record_label() is None:
+        return False
+    for a, b in ((lhs, rhs), (rhs, lhs)):
+        if not isinstance(b, FNot) or isinstance(a, FNot):
+            continue
+        record = [v for v in _space_geo_values(a) if _is_police_uk_record_point(getattr(v, "name", None))]
+        if not record:
+            continue
+        for nv in _space_geo_values(b.arg):
+            rel = _spatial_relation_labels_for_value(nv)
+            if not rel or "near place" in rel:
+                continue
+            for rv in record:
+                if _name_tokens(nv.name) == _name_tokens(rv.name):
+                    return True
+                if _is_police_uk_type_label(rv.name) and _specific_place(nv.name, nv):
+                    return True
+    return False
 
 
 # --- Forecasts keep their place (labelling policy v3.1's Forecasts rule; Oliver, 24 Nov 2026) -------------------------
@@ -368,7 +397,9 @@ def _space_mismatch_contradiction(lhs, rhs) -> bool:
     rhs_places = _space_place_values(rhs, near=True)
     if not lhs_places or not rhs_places:
         return False
-    return _places_derivably_disjoint(lhs_places, rhs_places, require_unique_on_both=False)
+    # A different town contradicts only for the same incident (_same_incident).
+    return (_places_derivably_disjoint(lhs_places, rhs_places, require_unique_on_both=False)
+            and _same_incident(lhs, rhs))
 
 def _space_named_geo_entities(formula):
     formula = _space_view(formula)
@@ -437,7 +468,9 @@ def _space_city_mismatch_contradiction(lhs, rhs) -> bool:
     rhs_places = _space_place_values(rhs, near=False)
     if not lhs_places or not rhs_places:
         return False
-    return _places_derivably_disjoint(lhs_places, rhs_places, require_unique_on_both=True)
+    # A different town contradicts only for the same incident (_same_incident).
+    return (_places_derivably_disjoint(lhs_places, rhs_places, require_unique_on_both=True)
+            and _same_incident(lhs, rhs))
 
 
 # --- Deriving a spatial contradiction (v4.4) ---------------------------------
@@ -464,7 +497,10 @@ def _space_city_mismatch_contradiction(lhs, rhs) -> bool:
 # facility on its own is not a contradiction: within one town, LaSSI measures no
 # distances, so it cannot show the event was not there (v4.4 also read street vs
 # street and station vs station as disjoint). Different or unknown kinds cannot
-# be shown disjoint either, so the pair stays indifferent.
+# be shown disjoint either, so the pair stays indifferent. Two towns are a
+# contradiction only for the same incident: both sides also name the same
+# specific place (Ellis and Oliver, 26 Nov 2026; _same_incident, which the two
+# town tests check after this function).
 
 _STREET_TYPE_NOUNS_CACHE = None
 
@@ -679,8 +715,10 @@ def _space_places_differ(lhs, rhs) -> bool:
     contradiction (policy v3), but the evidence doesn't support the claim's place either, so the score is capped at
     NEE (TabularCWASemantics.get_straightforward_id_similarity; policy v3.1, Oliver, 24 Nov: "a different street gets
     NEE in the score"). One side naming a place the other leaves out ("on Fenkle Street in Newcastle" against "in
-    Newcastle") is not a different place, and descriptors that corefer are one place. Nor is a Police.uk map point
-    named by its type ("Bus/Coach Station"): it names a kind of place, not which one, like a class noun."""
+    Newcastle") is not a different place, and descriptors that corefer are one place. A Police.uk map point named by
+    its type ("Bus/Coach Station") names a kind of place, not which one, like a class noun, so it is not a different
+    place here; but against a specific street, station or site it is capped all the same
+    (_type_point_against_specific_place)."""
     if _space_coreference_verdict(lhs, rhs) is not None:
         return False
 
@@ -695,6 +733,69 @@ def _space_places_differ(lhs, rhs) -> bool:
             _, _, lhs_unique, rhs_unique = _unique_places(lhs_places, rhs_places)
             if specific(lhs_unique) and specific(rhs_unique):
                 return True
+    return _type_point_against_specific_place(lhs, rhs)
+
+
+# --- A different town needs the same incident; a type point names no place (Ellis and Oliver, 26 Nov 2026) ----------
+#
+# Ellis: "A theft was recorded in Sunderland" does not contradict a Newcastle record, since both can be true; a
+# different town is Refuted only when the claim is clearly about the same incident and places it somewhere
+# incompatible, "so we don't recreate the street-name problem at town level". Oliver's rule ("Yes, use that rule"):
+# the claim also names the evidence's own specific place (the same street, station or named site) and puts it in
+# another town, as "Roadworks on Stakeford Lane in Sunderland" against Stakeford Lane, Newcastle. Otherwise a
+# different town is NEE (the cap above). For every source; the forecast rule is unchanged (it returns first).
+# A Police.uk point named only by its type ("Bus/Coach Station, Newcastle") "does not identify the specific station
+# the claim names" (A03, final), so a sentence naming a specific street, station or site against it is NEE.
+
+def _all_space_places(formula):
+    """Every SPACE place of a sentence, both of the two town tests' selections together: the relation type splits them
+    ("on or near Edward Place" is a named place, "near Edward Place" a near place), so one street can sit in one
+    selection on one side and in the other on the other side."""
+    out = dict(_space_place_values(formula, near=False) or {})
+    for n, v in (_space_place_values(formula, near=True) or {}).items():
+        out.setdefault(n, v)
+    return out
+
+
+def _specific_place(name, value) -> bool:
+    """A street, station or named site of a kind this module can tell: not a town, not a class noun alone, and not a
+    Police.uk point named by its type (it says what kind of place, not which one). The near-place rule may key a place
+    by its name without HOnK's geo suffix ("Leeds Bus" for "Leeds Bus Station"), so when that key's kind can't be told,
+    the value's own name gives it."""
+    own = getattr(value, "name", None)
+    if _is_generic_place_name(name) or _is_police_uk_type_label(name) or _is_police_uk_type_label(own):
+        return False
+    kind = _place_kind(name, value)
+    if kind is None and isinstance(own, str) and own.strip() != name:
+        kind = _place_kind(own.strip(), value)
+    return kind not in (None, "settlement")
+
+
+def _same_incident(lhs, rhs) -> bool:
+    """True when both sides name the same specific place (_specific_place), so a different town for it is the same
+    incident put somewhere incompatible."""
+    kb = HOnKSingleton.get() if HOnKSingleton.isReady() else None
+    rhs_places = _all_space_places(rhs)
+    return any(_specific_place(n, v) and any(_same_place(kb, n, o) for o in rhs_places)
+               for n, v in _all_space_places(lhs).items())
+
+
+def _type_point_against_specific_place(lhs, rhs) -> bool:
+    """True when the evidence is a Police.uk record whose map point is named by its type, one side names that point,
+    and the other names a specific place (_specific_place) that is not one of the first side's own specific places.
+    The type and the town are left out of that comparison: a station inside the record's town is still not identified
+    by the record (A03)."""
+    label = _police_uk_record_label()
+    if label is None or label.lower() not in _police_uk_map_point_types():
+        return False
+    kb = HOnKSingleton.get() if HOnKSingleton.isReady() else None
+    lhs_places, rhs_places = _all_space_places(lhs), _all_space_places(rhs)
+    for a, b in ((lhs_places, rhs_places), (rhs_places, lhs_places)):
+        if not any(_is_police_uk_type_label(n) for n in a):
+            continue
+        own = [o for o, ov in a.items() if _specific_place(o, ov)]
+        if any(_specific_place(n, v) and not any(_same_place(kb, n, o) for o in own) for n, v in b.items()):
+            return True
     return False
 
 

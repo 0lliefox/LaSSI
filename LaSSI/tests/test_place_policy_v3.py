@@ -1,9 +1,11 @@
 """Labelling policy v3 for places (Ellis, 23 Nov 2026; Oliver, 24 Nov; a declared change).
 
 A different street name on its own is no longer a contradiction, nor a different station or other facility: within
-one town LaSSI measures no distances. A different town still is, for every source, Police.uk included ("in Sunderland"
-against "On or near X, Newcastle"). A place the sentence types GPE is read as a town before any HOnK class it is
-listed in: Parmenides lists the towns Sunderland, Whitley Bay and South Shields as Metro stations.
+one town LaSSI measures no distances. A different town is, for every source, Police.uk included, but only for the same
+incident: both sides name the same specific place and put it in different towns ("near Edward Place in Sunderland"
+against "On or near Edward Place, Newcastle"; Ellis and Oliver, 26 Nov). "A theft was recorded in Sunderland" against a
+Newcastle record is NEE. A place the sentence types GPE is read as a town before any HOnK class it is listed in:
+Parmenides lists the towns Sunderland, Whitley Bay and South Shields as Metro stations.
 On hand-built values and formulas only (no parser, no HOnK load, no CURB or held-out text)."""
 import unittest
 from types import SimpleNamespace
@@ -127,11 +129,11 @@ MET_OFFICE = FBinaryPredicate(
     frozenset({("SPACE", (place("Newcastle upon Tyne", "at", "GPE"),))}))
 
 
-def roadworks(town):
-    """"Work expected to end on 17 April in <town>": a prediction term, no weather term."""
+def roadworks(town, street=None):
+    """"Work expected to end on 17 April [on <street>] in <town>": a prediction term, no weather term."""
+    places = ((place(street, "at", "FAC"),) if street else ()) + (place(town, "at", "GPE"),)
     return FBinaryPredicate("end", FVariable("work", "noun"), FVariable("?2", "existential"), 1.0,
-                            frozenset({("SPACE", (place(town, "at", "GPE"),)),
-                                       ("MODALITY", FVariable("expected", "JJ"))}))
+                            frozenset({("SPACE", places), ("MODALITY", FVariable("expected", "JJ"))}))
 
 
 class ForecastsKeepTheirPlace(unittest.TestCase):
@@ -164,11 +166,15 @@ class ForecastsKeepTheirPlace(unittest.TestCase):
         self.assertFalse(SR._space_mismatch_contradiction(MET_OFFICE, forecast_claim("Gateshead")))
 
     def test_roadworks_expected_to_end_keep_the_town_test(self):
-        self.assertTrue(SR._space_city_mismatch_contradiction(roadworks("Newcastle"), roadworks("Sunderland")))
+        # the same street in another town (the same incident); a bare other town is NEE, forecast or not
+        self.assertTrue(SR._space_city_mismatch_contradiction(roadworks("Newcastle", "Grey Street"),
+                                                              roadworks("Sunderland", "Grey Street")))
+        self.assertFalse(SR._space_city_mismatch_contradiction(roadworks("Newcastle"), roadworks("Sunderland")))
 
     def test_a_record_keeps_the_town_test(self):
-        self.assertTrue(SR._space_city_mismatch_contradiction(recorded(place("Newcastle", "at", "GPE")),
-                                                              recorded(place("Sunderland", "at", "GPE"))))
+        self.assertTrue(SR._space_city_mismatch_contradiction(
+            recorded(place("Fenkle Street", "at", "FAC"), place("Newcastle", "at", "GPE")),
+            recorded(place("Fenkle Street", "at", "FAC"), place("Sunderland", "at", "GPE"))))
 
     def test_a_forecast_for_another_town_is_a_different_place(self):
         # Not a contradiction, but not support either: the score is capped at NEE (DifferentPlaceScoresNEE).
@@ -210,9 +216,11 @@ class PlaceInsideATown(unittest.TestCase):
         self.assertTrue(SR._space_places_differ(self.ev, claim))  # NEE, not Supported
 
     def test_against_another_town(self):
+        # "in Sunderland" alone is not the same incident (Ellis and Oliver, 26 Nov): NEE, not Refuted
         claim = recorded(place("Sunderland", "at", "GPE"))
-        self.assertTrue(SR._space_city_mismatch_contradiction(self.ev, claim))
-        self.assertTrue(SR._space_city_mismatch_contradiction(claim, self.ev))
+        self.assertFalse(SR._space_city_mismatch_contradiction(self.ev, claim))
+        self.assertFalse(SR._space_city_mismatch_contradiction(claim, self.ev))
+        self.assertTrue(SR._space_places_differ(self.ev, claim))
 
     def test_against_its_own_town(self):
         claim = recorded(place("Newcastle", "at", "GPE"))
@@ -269,21 +277,29 @@ class DifferentPlaceScoresNEE(_StubbedCount, unittest.TestCase):
     def test_the_same_street_is_still_supported(self):
         self.assertEqual(self.score(roadworks_on("Stakeford Lane", "LOC"), roadworks_on("Stakeford Lane", "FAC")), 1.0)
 
-    def test_another_town_is_still_refuted(self):
+    def test_another_town_alone_is_nee(self):
         self.assertEqual(self.score(recorded(place("Newcastle", "at", "GPE")), recorded(place("Sunderland", "at", "GPE"))),
+                         0.5)
+
+    def test_the_same_street_in_another_town_is_refuted(self):
+        self.assertEqual(self.score(recorded(place("Fenkle Street", "at", "FAC"), place("Newcastle", "at", "GPE")),
+                                    recorded(place("Fenkle Street", "at", "FAC"), place("Sunderland", "at", "GPE"))),
                          0.0)
 
-    def test_a_police_uk_point_named_by_its_type_is_not_a_different_place(self):
-        # suite_c11: "On or near Bus/Coach Station, Leeds" against "near Leeds Bus Station" keeps its score. With HOnK's
-        # geo-suffix nouns the near-place rule compares "Bus/Coach" and "Leeds Bus"; the value still names the type.
+    def test_a_police_uk_point_named_by_its_type_against_a_named_station_is_nee(self):
+        # suite_c11: "On or near Bus/Coach Station, Leeds" against "near Leeds Bus Station". The type does not identify
+        # the station the claim names (A03, final NEE), so the score is capped (_type_point_against_specific_place).
+        # With HOnK's geo-suffix nouns the near-place rule compares "Bus/Coach" and "Leeds Bus"; the value still names
+        # the type.
         SR.set_doc_source("Police.uk", "On Or Near Bus/Coach Station")
         ev = recorded(inside("Bus/Coach Station", "on or near", "LOC", "Leeds"))
         claim = recorded(place("Leeds Bus Station", "near", "LOC"))
         honk = SimpleNamespace(**{**vars(STUB_HONK), "getGeoSuffixNouns": lambda: {"station"}})
         for kb in (STUB_HONK, honk):
             with mock.patch.object(HOnKSingleton, "get", staticmethod(lambda: kb), create=True):
-                self.assertFalse(SR._space_places_differ(ev, claim))
-                self.assertFalse(SR._space_places_differ(claim, ev))
+                self.assertTrue(SR._space_places_differ(ev, claim))
+                self.assertTrue(SR._space_places_differ(claim, ev))
+        self.assertEqual(self.score(ev, claim), 0.5)
         SR.set_doc_source("Police.uk", "On Or Near Malvern Road")  # a street is a place, not a type
         self.assertTrue(SR._space_places_differ(recorded(inside("Malvern Road", "on or near", "FAC", "Leeds")),
                                                 recorded(place("Balmoral Road", "near", "FAC"))))
@@ -294,6 +310,197 @@ class DifferentPlaceScoresNEE(_StubbedCount, unittest.TestCase):
         self.assertFalse(SR._space_places_differ(street, town))
         self.assertFalse(SR._space_places_differ(town, street))
         self.assertEqual(self.score(street, town), 1.0)
+
+
+class AnotherTownNeedsTheSameIncident(_StubbedCount, unittest.TestCase):
+    """Ellis, 26 Nov: "A theft was recorded in Sunderland" does not contradict a Newcastle record, since both can be
+    true; a different town is Refuted only when the claim is clearly about the same incident, "so we don't recreate the
+    street-name problem at town level". Oliver's rule ("Yes, use that rule"): the claim also names the evidence's own
+    specific place (the same street, station or named site) and puts it in another town (_same_incident). For every
+    source; otherwise a different town is NEE."""
+
+    def contradiction(self, a, b):
+        return SR._space_city_mismatch_contradiction(a, b) or SR._space_mismatch_contradiction(a, b)
+
+    def test_a_theft_in_another_town_is_nee(self):
+        SR.set_doc_source("Police.uk", "On or near Edward Place")
+        ev = recorded(place("Edward Place", "on or near", "FAC"), place("Newcastle", "at", "GPE"))
+        claim = recorded(place("Sunderland", "at", "GPE"))
+        self.assertFalse(self.contradiction(ev, claim))
+        self.assertFalse(self.contradiction(claim, ev))
+        self.assertEqual(self.score(ev, claim), 0.5)
+
+    def test_the_record_s_street_in_another_town_is_refuted(self):
+        # "on or near Edward Place" is a named place and "near Edward Place" a near place: the two town tests split
+        # them, so the same street is found on all of each side's places
+        SR.set_doc_source("Police.uk", "On or near Edward Place")
+        ev = recorded(place("Edward Place", "on or near", "FAC"), place("Newcastle", "at", "GPE"))
+        claim = recorded(place("Edward Place", "near", "FAC"), place("Sunderland", "at", "GPE"))
+        self.assertTrue(SR._same_incident(ev, claim))
+        self.assertEqual(self.score(ev, claim), 0.0)
+        self.assertEqual(self.score(claim, ev), 0.0)
+
+    def test_stakeford_lane_in_sunderland_is_refuted(self):
+        # "Roadworks on Stakeford Lane in Sunderland" against Stakeford Lane, Newcastle, the town as its own value or
+        # written inside the place ("Stakeford Lane, Newcastle")
+        SR.set_doc_gpe_names({"newcastle", "sunderland"})
+        self.addCleanup(SR.set_doc_gpe_names, ())
+        claim = recorded(place("Stakeford Lane", "at", "FAC"), place("Sunderland", "at", "GPE"))
+        for ev in (recorded(place("Stakeford Lane", "at", "LOC"), place("Newcastle", "at", "GPE")),
+                   recorded(inside("Stakeford Lane", "at", "LOC", "Newcastle"))):
+            self.assertTrue(self.contradiction(ev, claim))
+            self.assertEqual(self.score(ev, claim), 0.0)
+            self.assertEqual(self.score(claim, ev), 0.0)
+
+    def test_another_street_in_another_town_is_nee(self):
+        ev = recorded(place("Stakeford Lane", "at", "LOC"), place("Newcastle", "at", "GPE"))
+        claim = recorded(place("Meadowdale Crescent", "at", "FAC"), place("Sunderland", "at", "GPE"))
+        self.assertFalse(self.contradiction(ev, claim))
+        self.assertEqual(self.score(ev, claim), 0.5)
+
+    def test_the_same_street_in_the_same_town_is_supported(self):
+        ev = recorded(place("Stakeford Lane", "at", "LOC"), place("Newcastle", "at", "GPE"))
+        self.assertEqual(self.score(ev, recorded(place("Stakeford Lane", "at", "FAC"), place("Newcastle", "at", "GPE"))),
+                         1.0)
+
+    def test_a_shared_town_is_not_the_same_incident(self):
+        # a town names no incident: "between Newcastle and Sunderland" against "between Newcastle and Durham"
+        a = recorded(place("Newcastle", "at", "GPE"), place("Sunderland", "at", "GPE"))
+        b = recorded(place("Newcastle", "at", "GPE"), place("Durham", "at", "GPE"))
+        self.assertFalse(SR._same_incident(a, b))
+        self.assertFalse(self.contradiction(a, b))
+
+    def test_a_type_point_is_not_the_same_incident(self):
+        # "Bus/Coach Station" says what kind of place, not which one
+        SR.set_doc_source("Police.uk", "On Or Near Bus/Coach Station")
+        ev = recorded(place("Bus/Coach Station", "on or near", "LOC"), place("Leeds", "at", "GPE"))
+        claim = recorded(place("Bus/Coach Station", "near", "LOC"), place("Sunderland", "at", "GPE"))
+        self.assertFalse(SR._same_incident(ev, claim))
+        self.assertFalse(self.contradiction(ev, claim))
+
+    def test_another_source_follows_the_same_rule(self):
+        for source in ("Newcastle City Council Roadworks", "Nexus"):
+            SR.set_doc_source(source, None)
+            ev = recorded(place("Grey Street", "at", "FAC"), place("Newcastle", "at", "GPE"))
+            self.assertEqual(self.score(ev, recorded(place("Sunderland", "at", "GPE"))), 0.5)
+            self.assertEqual(self.score(ev, recorded(place("Grey Street", "at", "FAC"), place("Sunderland", "at", "GPE"))),
+                             0.0)
+
+
+class TypePointNamesNoPlace(_StubbedCount, unittest.TestCase):
+    """A Police.uk point named only by its type ("Bus/Coach Station", "Parking Area") does not identify a specific
+    place, so a sentence naming a specific street, station or site against it is NEE (A03, final: "The record gives
+    only a type of place ... so it does not identify the specific station the claim names"). suite_c11 scored 1.0:
+    the parser folds "Leeds" into the record's point as a noun extra, so the record has no specific place of its own
+    and the cap for a different place never fired (_type_point_against_specific_place)."""
+
+    def setUp(self):
+        super().setUp()
+        SR.set_doc_source("Police.uk", "On Or Near Bus/Coach Station")
+
+    def test_c11_a_named_station_against_the_type_is_nee(self):
+        ev = recorded(inside("Bus/Coach Station", "on or near", "LOC", "Leeds"))
+        claim = recorded(place("Leeds Bus Station", "near", "LOC"))
+        self.assertTrue(SR._type_point_against_specific_place(ev, claim))
+        self.assertTrue(SR._type_point_against_specific_place(claim, ev))
+        self.assertEqual(self.score(ev, claim), 0.5)
+        self.assertEqual(self.score(claim, ev), 0.5)
+
+    def test_a_station_in_the_record_s_town_is_still_not_identified(self):
+        # crime_006's shape: "Bus/Coach Station, Newcastle" against "near Newcastle Bus Station". Even if HOnK places
+        # the station in the town, the town is left out of the comparison.
+        ev = recorded(place("Bus/Coach Station", "on or near", "LOC"), place("Newcastle", "at", "GPE"))
+        claim = recorded(place("Newcastle Bus Station", "near", "LOC"))
+        with mock.patch.object(SR, "_same_place", lambda kb, a, b: {a, b} == {"Newcastle Bus Station", "Newcastle"}
+                               or a == b):
+            self.assertTrue(SR._type_point_against_specific_place(ev, claim))
+
+    def test_a_named_street_against_the_type_is_nee(self):
+        ev = recorded(inside("Bus/Coach Station", "on or near", "LOC", "Leeds"))
+        self.assertEqual(self.score(ev, recorded(place("Boar Lane", "near", "FAC"))), 0.5)
+
+    def test_the_type_itself_or_the_town_is_not_capped(self):
+        ev = recorded(place("Bus/Coach Station", "on or near", "LOC"), place("Leeds", "at", "GPE"))
+        for claim in (recorded(place("Bus/Coach Station", "near", "LOC")), recorded(place("Leeds", "at", "GPE"))):
+            self.assertFalse(SR._type_point_against_specific_place(ev, claim))
+            self.assertEqual(self.score(ev, claim), 1.0)
+
+    def test_a_street_record_is_not_a_type_point(self):
+        SR.set_doc_source("Police.uk", "On or near Briggate")
+        ev = recorded(place("Briggate", "on or near", "FAC"))
+        self.assertFalse(SR._type_point_against_specific_place(ev, recorded(place("Briggate", "near", "FAC"))))
+        self.assertEqual(self.score(ev, recorded(place("Briggate", "near", "FAC"))), 1.0)
+
+    def test_only_a_police_uk_record(self):
+        SR.set_doc_source("Nexus", "Bus/Coach Station")
+        ev = recorded(inside("Bus/Coach Station", "on or near", "LOC", "Leeds"))
+        self.assertFalse(SR._type_point_against_specific_place(ev, recorded(place("Leeds Bus Station", "near", "LOC"))))
+
+
+class NegatedPlaceInTheVicinity(unittest.TestCase):
+    """Labelling policy v3.1's Police.uk table: "that no such crime was recorded near X" is Refuted (crime_005_R), but
+    "that no such crime was recorded on or at X" is Not Enough Evidence (crime_006_R, A13, final NEE): the record puts
+    the crime in the vicinity of X, not on or at it (_negated_place_in_the_vicinity; Oliver, 26 Nov: "Yes, add it
+    before the freeze"). The model count is stubbed at a contradiction (0.0), as the negation of the same event gives."""
+
+    def setUp(self):
+        for p in (mock.patch.object(HOnKSingleton, "isReady", staticmethod(lambda: False)),
+                  mock.patch.object(HOnKSingleton, "get", staticmethod(lambda: STUB_HONK), create=True)):
+            p.start()
+            self.addCleanup(p.stop)
+        self.addCleanup(SR.set_doc_source, None, None)
+
+    @staticmethod
+    def score(lhs, rhs):
+        from LaSSI.structures.extended_fol.TabularCWASemantics import TabularCWASemantics
+        t = TabularCWASemantics.__new__(TabularCWASemantics)
+        t.sentence_list = [lhs, rhs]
+        with mock.patch.object(TabularCWASemantics, "_raw_id_similarity", lambda self, i, j: 0.0):
+            return t.get_straightforward_id_similarity(0, 1)
+
+    def both_ways(self, ev, claim, value):
+        self.assertEqual(self.score(ev, claim), value)
+        self.assertEqual(self.score(claim, ev), value)
+
+    def test_no_crime_at_the_record_s_point_is_nee(self):
+        SR.set_doc_source("Police.uk", "On or near Fenkle Street")
+        ev = recorded(place("Fenkle Street", "on or near", "FAC"), place("Newcastle", "at", "GPE"))
+        self.both_ways(ev, FNot(recorded(place("Fenkle Street", "at", "FAC"))), 0.5)
+
+    def test_crime_006_r_no_crime_at_a_station_the_type_names_is_nee(self):
+        # "No weapons possession incidents were recorded at Newcastle Bus Station" against "On or near Bus/Coach Station,
+        # Newcastle": the type does not say which station, and "on or near" is not "at"
+        SR.set_doc_source("Police.uk", "On Or Near Bus/Coach Station")
+        ev = recorded(place("Bus/Coach Station", "on or near", "LOC"), place("Newcastle", "at", "GPE"))
+        self.both_ways(ev, FNot(recorded(place("Newcastle Bus Station", "at", "LOC"))), 0.5)
+        ev_c11 = recorded(inside("Bus/Coach Station", "on or near", "LOC", "Leeds"))  # the town folded in, as suite_c11
+        self.both_ways(ev_c11, FNot(recorded(place("Leeds Bus Station", "at", "LOC"))), 0.5)
+
+    def test_crime_005_r_no_crime_near_the_point_stays_refuted(self):
+        # "No drugs offences were recorded near Fenkle Street in Newcastle" against "On or near Fenkle Street"
+        SR.set_doc_source("Police.uk", "On Or Near Fenkle Street")
+        ev = recorded(place("Fenkle Street", "on or near", "FAC"), place("Newcastle", "at", "GPE"))
+        self.both_ways(ev, FNot(recorded(place("Fenkle Street", "near", "FAC"), place("Newcastle", "at", "GPE"))), 0.0)
+        self.both_ways(ev, FNot(recorded(place("Fenkle Street", "on or near", "FAC"))), 0.0)
+
+    def test_no_crime_near_a_station_the_type_names_stays_refuted(self):
+        SR.set_doc_source("Police.uk", "On Or Near Bus/Coach Station")
+        ev = recorded(place("Bus/Coach Station", "on or near", "LOC"), place("Newcastle", "at", "GPE"))
+        self.both_ways(ev, FNot(recorded(place("Newcastle Bus Station", "near", "LOC"))), 0.0)
+
+    def test_no_crime_in_the_record_s_town_stays_refuted(self):
+        SR.set_doc_source("Police.uk", "On or near Fenkle Street")
+        ev = recorded(place("Fenkle Street", "on or near", "FAC"), place("Newcastle", "at", "GPE"))
+        self.both_ways(ev, FNot(recorded(place("Newcastle", "at", "GPE"))), 0.0)
+
+    def test_only_a_police_uk_record_and_only_a_negation(self):
+        SR.set_doc_source("Newcastle City Council Roadworks", None)
+        ev = recorded(place("Fenkle Street", "at", "FAC"))
+        self.both_ways(ev, FNot(recorded(place("Fenkle Street", "at", "FAC"))), 0.0)
+        SR.set_doc_source("Police.uk", "On or near Fenkle Street")
+        ev = recorded(place("Fenkle Street", "on or near", "FAC"))
+        self.assertFalse(SR._negated_place_in_the_vicinity(ev, recorded(place("Fenkle Street", "at", "FAC"))))
+        self.assertFalse(SR._negated_place_in_the_vicinity(FNot(ev), FNot(recorded(place("Fenkle Street", "at", "FAC")))))
 
 
 def works(*parts):
@@ -335,10 +542,12 @@ class ConjunctionPlaces(_StubbedCount, unittest.TestCase):
         ev = works(("excavate", "Stakeford Lane", "LOC"), ("not install", "Meadowdale Crescent", "LOC"))
         self.assertTrue(SR._space_places_differ(ev, roadworks_on("Meadowdale Crescent", "FAC")))
 
-    def test_another_town_in_a_conjunction_is_refuted(self):
+    def test_another_town_in_a_conjunction(self):
         ev = FAnd((recorded(place("Newcastle", "at", "GPE")), recorded(place("Newcastle", "at", "GPE"),
                                                                        place("Fenkle Street", "at", "FAC"))))
-        self.assertEqual(self.score(ev, recorded(place("Sunderland", "at", "GPE"))), 0.0)
+        self.assertEqual(self.score(ev, recorded(place("Sunderland", "at", "GPE"))), 0.5)  # the town alone: NEE
+        self.assertEqual(self.score(ev, recorded(place("Fenkle Street", "at", "FAC"), place("Sunderland", "at", "GPE"))),
+                         0.0)  # the same street in another town: Refuted
         self.assertEqual(self.score(ev, recorded(place("Newcastle", "at", "GPE"))), 1.0)
 
     def test_a_predicate_reads_as_before(self):

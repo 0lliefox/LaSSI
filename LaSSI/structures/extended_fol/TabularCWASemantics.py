@@ -712,6 +712,12 @@ class TabularCWASemantics:
                 # Mutual entailment via ontology synonymy, but the asymmetric
                 # distinguishing content means the events are distinct.
                 val = 0.5
+        if val == 0.0:
+            # "No such crime was recorded on or at X" against a Police.uk record's "On or near X": the record puts the
+            # crime in the vicinity of X, so the negation is not a contradiction (policy v3.1's Police.uk table).
+            from LaSSI.HOnK.TBox.SpatialReasoner import _negated_place_in_the_vicinity
+            if _negated_place_in_the_vicinity(self.sentence_list[i], self.sentence_list[j]):
+                val = 0.5
         if val > 0.5:
             from LaSSI.HOnK.TBox.SpatialReasoner import _space_relation_narrowing, _space_places_differ
             if _space_relation_narrowing(self.sentence_list[i], self.sentence_list[j]):
