@@ -1,8 +1,0 @@
-{
-    "conceptnet_csv": "C:\\Users\\guygu\\Downloads\\edges\\edges.csv",
-    "wiktionary_json": "C:\\Users\\guygu\\Downloads\\edges\\data.json",
-    "result_file": "C:\\Users\\guygu\\Downloads\\new_ontology_triplets.tab",
-    "adjacency_db": "adjacency_list.db",
-    "clusters_db": "clusters.db",
-    "testing": true
-}

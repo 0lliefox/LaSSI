@@ -10,9 +10,10 @@
 #   zsh regen_gold.sh              # the 20 gold cases (similarities_neet.json)
 #   zsh regen_gold.sh all          # all 30 evidence cases
 #   zsh regen_gold.sh crime_004 …  # explicit case list
-#   ~/PycharmProjects/LaSSI/.venv/bin/python -m unittest LaSSI/tests/test_similarities.py
-cd /Users/fox/Documents/Ubuntu/LaSSI
-PY=~/PycharmProjects/LaSSI/.venv/bin/python
+#   PY=<venv>/bin/python zsh regen_gold.sh   # PY is the interpreter (default: python)
+#   $PY -m unittest LaSSI/tests/test_similarities.py
+cd "${0:A:h}"   # the checkout this script is in
+PY=${PY:-python}
 CASES_GOLD=(crime_001 crime_002 crime_003 crime_004 crime_005 crime_006 crime_007 \
        transport_001 transport_002 transport_004 transport_005 transport_006 \
        weather_001 weather_002 weather_003 weather_004 weather_005 weather_006 weather_007 weather_008)

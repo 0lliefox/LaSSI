@@ -86,6 +86,9 @@ python main.py                                 # default dataset and config
 python main.py <dataset.yaml> <connection.yaml>
 ```
 
+`python visualiser.py`, from the repository root, serves the LaSSI Visualiser (FastAPI and Dash) over `catabolites/`
+on port 8000.
+
 `SentenceRepresentation` in `LaSSI/Configuration.py` chooses the form: `Logical` (the default), `LogicalGraph`,
 `SimpleGraph`, `FullText`, and each graph or logical form with `DisabledAPriori`.
 
@@ -93,7 +96,8 @@ python main.py <dataset.yaml> <connection.yaml>
 
 ```bash
 python -m unittest LaSSI.tests.test_v45_honk_v2        # one of the unit tests (hand-built inputs)
-python -m unittest LaSSI/tests/test_similarities.py     # gold matrices; needs a populated catabolites/
+zsh regen_gold.sh                                       # rebuilds the 20 gold cases' outputs (one process each)
+python -m unittest LaSSI/tests/test_similarities.py     # compares them with the gold matrices
 ```
 
 `test_similarities.py` compares each case's matrix with `LaSSI/tests/assertions/similarities_neet.json`. A gold
