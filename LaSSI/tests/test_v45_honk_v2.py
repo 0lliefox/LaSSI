@@ -1,8 +1,8 @@
-"""LaSSI v4.5: LaSSI v4.4 reading HOnK v2.0.0 (Oliver, 18-19 Nov 2026).
+"""LaSSI v4.5: how it reads HOnK differently from v4.4 (Oliver, 18-19 Nov 2026).
 
-Each test pins one way v4.5 reads HOnK v2 differently from v4.4 (gap list: honk_v170/review_2026-11-16/
-lassi_v45_gap_list.md) and fails on v4.4 (4f70287). Hand-built inputs only: no parser, no Postgres, no HOnK release,
-no CURB text.
+Each test pins one such change and fails on v4.4 (4f70287). The changes were made when v4.5 was to read HOnK v2.0.0,
+and they stay now that it freezes on HOnK v1.6.1 (20 Nov). Hand-built inputs only: no parser, no Postgres, no HOnK
+release, no CURB text.
 """
 import unittest
 from unittest import mock
