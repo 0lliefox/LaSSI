@@ -1,38 +1,45 @@
-"""
-This app creates a simple sidebar layout using inline style arguments and the
-dbc.Nav component.
+"""The LaSSI Visualiser: a browser view of the pipeline's outputs in ``catabolites/``.
 
-dcc.Location is used to track the current location, and a callback uses the
-current location to render the appropriate page content. The active prop of
-each NavLink is set automatically according to the current pathname. To use
-this feature you must install dash-bootstrap-components >= 0.11.0.
+    python visualiser.py        # from the repository root; serves http://localhost:8000
 
-For more details on building multi-page Dash applications, check out the Dash
-documentation: https://dash.plot.ly/urls
+The home page lists one card per catabolite (one per dataset LaSSI has run). Each
+catabolite is a Dash app mounted at ``/<name>/``: its home page shows the
+similarity matrices, and ``/<name>/<i>`` shows sentence *i*'s logical form, the
+LaSSIExplainer's directional explanations (``LaSSI/explainer/dashboard.py``), its
+GSM input and result graphs (vis.js pages served at ``/gsm/<name>/<i>/<type>``),
+the graph-grammar morphisms and its meuDB entries. Catabolites created while the
+server runs are mounted on the next request.
 """
 import glob
+import html as html_escape
 import json
 import os.path
 import pathlib
+import re
+import textwrap
 
 import dash
-from dash import dash_table
-import flask
 import dash_bootstrap_components as dbc
+import flask
 import pandas
+import uvicorn
 import yaml
-from dash import Input, Output, dcc, html
+from dash import Input, Output, dash_table, dcc, html
+from fastapi import FastAPI
+from fastapi.middleware.wsgi import WSGIMiddleware
+from fastapi.responses import HTMLResponse as FastAPIHTMLResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+from starlette.routing import Mount
 
 from LaSSI.explainer.dashboard import render_explanation_dashboard
 
 # Capture the working directory once at startup so all path lookups are consistent
 # even if uvicorn or any library changes os.getcwd() later.
 _BASE_DIR = os.path.abspath(os.getcwd())
+_CATABOLITES_DIR = os.path.join(_BASE_DIR, "catabolites")
 
-# app = dash.Dash()
-
-import re as _re
-_SENTENCE_BOUNDARY_RE = _re.compile(r'(?<=[.!?])\s+(?=[A-Z])')
+_SENTENCE_BOUNDARY_RE = re.compile(r'(?<=[.!?])\s+(?=[A-Z])')
 
 def _split_row_sentences(text: str) -> list:
     """Mirror SentenceLoader.split_yaml_row_sentences — split a YAML row into
@@ -181,16 +188,18 @@ def _load_page_data(full_path: str):
                 local_meu.append(sorted(x["multi_entity_unit"],
                                         key=lambda x: x["confidence"], reverse=True))
 
-    import textwrap
-
     def _wrap(s, width=40):
         """Wrap a sentence into Plotly-compatible multi-line tick label."""
         return "<br>".join(textwrap.wrap(s.strip(), width=width))
 
     tick_labels = [f"{i}. {_wrap(s)}" for i, s in enumerate(lines)]
 
+    # LaSSI writes the matrices to matrices/; older catabolites have them at the top level.
+    matrices_dir = os.path.join(full_path, "matrices")
+    if not os.path.isdir(matrices_dir):
+        matrices_dir = full_path
     matrices = {}
-    for matrix_file in glob.glob(os.path.join(full_path, "confusion_matrices_*.json")):
+    for matrix_file in sorted(glob.glob(os.path.join(matrices_dir, "confusion_matrices_*.json"))):
         mtype = pathlib.Path(matrix_file).name[19:-5]
         with open(matrix_file, "r") as f:
             z = json.load(f)
@@ -221,7 +230,7 @@ def _load_page_data(full_path: str):
 
 def create_dash_app(requests_pathname_prefix: str = None):
     server = flask.Flask(__name__)
-    full_path = os.path.join(_BASE_DIR, "catabolites", requests_pathname_prefix)
+    full_path = os.path.join(_CATABOLITES_DIR, requests_pathname_prefix)
     app = dash.Dash(__name__, server=server,
                     requests_pathname_prefix=f"/{requests_pathname_prefix}/",
                     external_stylesheets=[dbc.themes.BOOTSTRAP],
@@ -256,7 +265,7 @@ def create_dash_app(requests_pathname_prefix: str = None):
         sidebar = html.Div([
             html.H2("Sentences", className="display-4"),
             html.Hr(),
-            html.P("The list of the sentences from the database", className="lead"),
+            html.P("The sentences of this dataset", className="lead"),
             dbc.Nav(navlinks, vertical=True, pills=True),
         ], style=SIDEBAR_STYLE)
         content = html.Div(
@@ -291,77 +300,14 @@ def create_dash_app(requests_pathname_prefix: str = None):
     @app.callback(Output("page-content", "children"), [Input("url", "pathname")])
     def render_page_content(pathname):
         lines, LS, local_meu, matrices, graph_indices = _load_page_data(full_path)
-        try:
-            val = int(pathname.rstrip("/").rsplit("/", 1)[-1])
-            from LaSSI.viz import NestedTables
-            row_graph_idxs = graph_indices[val] if val < len(graph_indices) else [val]
-            if len(local_meu) == len(lines):
-                meu_rows = local_meu[val]
-            else:
-                meu_rows = []
-                for gidx in row_graph_idxs:
-                    if gidx < len(local_meu):
-                        meu_rows.extend(local_meu[gidx])
-            df = pandas.DataFrame(meu_rows)
-            children = [
-                html.H1("Ingested sentence"), html.Hr(),
-                html.P(lines[val]),
-                html.H1("Logical Representation"), html.Hr(),
-                LS[val],
-            ]
-            children += [
-                html.H1("LaSSIExplainer"), html.Hr(),
-                render_explanation_dashboard(
-                    requests_pathname_prefix,
-                    full_path,
-                    val,
-                    len(lines),
-                    _BASE_DIR,
-                ),
-            ]
-            _iframe_style = {
-                "width": "100%", "height": "80vh",
-                "border": "1px solid #dee2e6", "borderRadius": "4px",
-                "marginBottom": "0.5em",
-            }
-            gsm_blocks = []
-            for pos, gidx in enumerate(row_graph_idxs, start=1):
-                viz_base = os.path.join(full_path, "viz", str(gidx))
-                if not os.path.exists(os.path.join(viz_base, "input.json")):
-                    continue
-                sub_label = f" (chunk {pos}, graph {gidx})" if len(row_graph_idxs) > 1 else ""
-                gsm_blocks += [
-                    html.H2(f"Input graph{sub_label}"),
-                    html.Iframe(src=f"/gsm/{requests_pathname_prefix}/{gidx}/input",
-                                style=_iframe_style),
-                    html.H2(f"Result graph{sub_label}"),
-                    html.Iframe(src=f"/gsm/{requests_pathname_prefix}/{gidx}/result",
-                                style=_iframe_style),
-                ]
-            if gsm_blocks:
-                children += [html.H1("GSM Graphs"), html.Hr()] + gsm_blocks
-            morphism_blocks = []
-            for pos, gidx in enumerate(row_graph_idxs, start=1):
-                viz_base = os.path.join(full_path, "viz", str(gidx))
-                if not os.path.isdir(viz_base):
-                    continue
-                sub_label = f"Chunk {pos} / graph {gidx}" if len(row_graph_idxs) > 1 else f"Graph {gidx}"
-                morphism_blocks.extend([
-                    html.H2(sub_label),
-                    NestedTables.generate_morphism_html(
-                        os.path.join(full_path, "viz"), str(gidx)),
-                ])
-            if morphism_blocks:
-                children += [html.H1("Morphisms"), *morphism_blocks]
-            children += [
-                html.H1("MeuDB"),
-                dash_table.DataTable(meu_rows,
-                                     [{"name": i, "id": i} for i in df.columns]),
-            ]
-            return html.Div(children)
-        except Exception:
-            pass
-        if pathname.rstrip("/") in ("/", _base):
+        last = (pathname or "").rstrip("/").rsplit("/", 1)[-1]
+        if last.isdigit() and int(last) < len(lines):
+            try:
+                return _sentence_page(int(last), lines, LS, local_meu, graph_indices)
+            except Exception as exc:
+                return dbc.Alert(f"Sentence {last} could not be shown. {type(exc).__name__}: {exc}",
+                                 color="danger")
+        if (pathname or "").rstrip("/") in ("", _base):
             matrices_final = []
             for matrix_name, fig in matrices.items():
                 matrices_final.append(html.H2(matrix_name))
@@ -369,15 +315,79 @@ def create_dash_app(requests_pathname_prefix: str = None):
             if matrices_final:
                 matrices_final.insert(0, html.H1("Confusion Matrices"))
                 return html.Div(matrices_final)
-        return html.Div([html.P("Please select an item from the right bar.")],
+        return html.Div([html.P("Select a sentence from the sidebar.")],
                         className="p-3 bg-light rounded-3")
+
+    def _sentence_page(val, lines, LS, local_meu, graph_indices):
+        from LaSSI.viz import NestedTables
+        row_graph_idxs = graph_indices[val] if val < len(graph_indices) else [val]
+        if len(local_meu) == len(lines):
+            meu_rows = local_meu[val]
+        else:
+            meu_rows = []
+            for gidx in row_graph_idxs:
+                if gidx < len(local_meu):
+                    meu_rows.extend(local_meu[gidx])
+        df = pandas.DataFrame(meu_rows)
+        children = [
+            html.H1("Ingested sentence"), html.Hr(),
+            html.P(lines[val]),
+            html.H1("Logical Representation"), html.Hr(),
+            LS[val],
+        ]
+        children += [
+            html.H1("LaSSIExplainer"), html.Hr(),
+            render_explanation_dashboard(
+                requests_pathname_prefix,
+                full_path,
+                val,
+                len(lines),
+                _BASE_DIR,
+            ),
+        ]
+        _iframe_style = {
+            "width": "100%", "height": "80vh",
+            "border": "1px solid #dee2e6", "borderRadius": "4px",
+            "marginBottom": "0.5em",
+        }
+        gsm_blocks = []
+        for pos, gidx in enumerate(row_graph_idxs, start=1):
+            viz_base = os.path.join(full_path, "viz", str(gidx))
+            if not os.path.exists(os.path.join(viz_base, "input.json")):
+                continue
+            sub_label = f" (chunk {pos}, graph {gidx})" if len(row_graph_idxs) > 1 else ""
+            gsm_blocks += [
+                html.H2(f"Input graph{sub_label}"),
+                html.Iframe(src=f"/gsm/{requests_pathname_prefix}/{gidx}/input",
+                            style=_iframe_style),
+                html.H2(f"Result graph{sub_label}"),
+                html.Iframe(src=f"/gsm/{requests_pathname_prefix}/{gidx}/result",
+                            style=_iframe_style),
+            ]
+        if gsm_blocks:
+            children += [html.H1("GSM Graphs"), html.Hr()] + gsm_blocks
+        morphism_blocks = []
+        for pos, gidx in enumerate(row_graph_idxs, start=1):
+            viz_base = os.path.join(full_path, "viz", str(gidx))
+            if not os.path.isdir(viz_base):
+                continue
+            sub_label = f"Chunk {pos} / graph {gidx}" if len(row_graph_idxs) > 1 else f"Graph {gidx}"
+            morphism_blocks.extend([
+                html.H2(sub_label),
+                NestedTables.generate_morphism_html(
+                    os.path.join(full_path, "viz"), str(gidx)),
+            ])
+        if morphism_blocks:
+            children += [html.H1("Morphisms"), *morphism_blocks]
+        children += [
+            html.H1("MeuDB"),
+            dash_table.DataTable(meu_rows,
+                                 [{"name": i, "id": i} for i in df.columns]),
+        ]
+        return html.Div(children)
 
     return app
 
-import uvicorn
-from fastapi import FastAPI
-from fastapi.middleware.wsgi import WSGIMiddleware
-from fastapi.responses import HTMLResponse as FastAPIHTMLResponse
 
 # ---------------------------------------------------------------------------
 # GSM graph helpers – mirrors parsers/GSMExt.py from the datagram-db visualizer
@@ -495,11 +505,11 @@ net.on("click",function(p){{
 
 
 def _load_gsm_graph(catabolite: str, sent_idx: int, graph_type: str):
-    """Load and convert a GSM graph to (nodes, edges) vis.js lists."""
-    base = os.path.join(_BASE_DIR, "catabolites", catabolite, "viz", str(sent_idx))
+    """Load a GSM graph as vis.js (nodes, edges), or (None, the missing file's path)."""
+    base = os.path.join(_CATABOLITES_DIR, catabolite, "viz", str(sent_idx))
     graph_file = os.path.join(base, f"{graph_type}.json")
     if not os.path.exists(graph_file):
-        return None, None, None, graph_file
+        return None, graph_file
     with open(graph_file) as f:
         objects = json.load(f)
     removed, inserted = [], []
@@ -511,49 +521,22 @@ def _load_gsm_graph(catabolite: str, sent_idx: int, graph_type: str):
     if os.path.exists(inserted_path):
         with open(inserted_path) as f:
             inserted = json.load(f)
-    nodes = _gsm_to_vis_nodes(objects, removed, inserted)
-    edges = _gsm_to_vis_edges(objects)
-    return nodes, edges, removed, inserted
+    return _gsm_to_vis_nodes(objects, removed, inserted), _gsm_to_vis_edges(objects)
 
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request as StarletteRequest
-
+# ---------------------------------------------------------------------------
+# The FastAPI server: the catabolite index, the GSM graph pages, one Dash app per catabolite
+# ---------------------------------------------------------------------------
 
 app = FastAPI()
-
-
-class _AutoMountMiddleware(BaseHTTPMiddleware):
-    """On every request, scan for new catabolite directories and mount them."""
-    async def dispatch(self, request: StarletteRequest, call_next):
-        for name in _current_catabolites():
-            _ensure_mounted(name)
-        return await call_next(request)
-
-
-@app.get("/gsm/{catabolite}/{sent_idx}/{graph_type}", response_class=FastAPIHTMLResponse)
-def gsm_graph(catabolite: str, sent_idx: int, graph_type: str):
-    nodes, edges, _, meta = _load_gsm_graph(catabolite, sent_idx, graph_type)
-    if nodes is None:
-        return FastAPIHTMLResponse(
-            f"<html><body><p>Graph not found.</p><pre>{meta}</pre></body></html>",
-            status_code=404,
-        )
-    title = f"{catabolite} / sentence {sent_idx} / {graph_type}"
-    return FastAPIHTMLResponse(_gsm_graph_page(nodes, edges, title))
-
-
-from starlette.routing import Mount
-
-app.add_middleware(_AutoMountMiddleware)
-
 _mounted_catabolites: set = set()
 
 
 def _current_catabolites() -> list:
     """Read the catabolites directory on every call so new datasets appear immediately."""
-    desktop = pathlib.Path(os.path.join(_BASE_DIR, "catabolites"))
-    return sorted(item.name for item in desktop.iterdir() if item.is_dir())
+    if not os.path.isdir(_CATABOLITES_DIR):
+        return []
+    return sorted(item.name for item in pathlib.Path(_CATABOLITES_DIR).iterdir() if item.is_dir())
 
 
 def _ensure_mounted(name: str) -> None:
@@ -565,6 +548,29 @@ def _ensure_mounted(name: str) -> None:
     _mounted_catabolites.add(name)
 
 
+class _AutoMountMiddleware(BaseHTTPMiddleware):
+    """On every request, scan for new catabolite directories and mount them."""
+    async def dispatch(self, request: StarletteRequest, call_next):
+        for name in _current_catabolites():
+            _ensure_mounted(name)
+        return await call_next(request)
+
+
+app.add_middleware(_AutoMountMiddleware)
+
+
+@app.get("/gsm/{catabolite}/{sent_idx}/{graph_type}", response_class=FastAPIHTMLResponse)
+def gsm_graph(catabolite: str, sent_idx: int, graph_type: str):
+    nodes, edges = _load_gsm_graph(catabolite, sent_idx, graph_type)
+    if nodes is None:
+        return FastAPIHTMLResponse(
+            f"<html><body><p>Graph not found.</p><pre>{html_escape.escape(edges)}</pre></body></html>",
+            status_code=404,
+        )
+    title = html_escape.escape(f"{catabolite} / sentence {sent_idx} / {graph_type}")
+    return FastAPIHTMLResponse(_gsm_graph_page(nodes, edges, title))
+
+
 @app.get("/", response_class=FastAPIHTMLResponse)
 def read_main():
     catabolites = _current_catabolites()
@@ -573,7 +579,7 @@ def read_main():
 
     cards = ""
     for name in catabolites:
-        full = os.path.join(_BASE_DIR, "catabolites", name)
+        full = os.path.join(_CATABOLITES_DIR, name)
         # Count sentences from string_rep.txt if present
         n_sentences = 0
         sr = os.path.join(full, "string_rep.txt")
@@ -585,7 +591,7 @@ def read_main():
         <div class="col">
           <div class="card h-100 shadow-sm">
             <div class="card-body d-flex flex-column">
-              <h5 class="card-title">{name}</h5>
+              <h5 class="card-title">{html_escape.escape(name)}</h5>
               <p class="card-text">{badge}</p>
               <a href="/{name}/" class="btn btn-primary mt-auto">Open</a>
             </div>
@@ -605,7 +611,7 @@ def read_main():
   <h1 class="mb-1">LaSSI Visualiser</h1>
   <p class="text-muted mb-4">Select a dataset to explore its sentences and logical representations.</p>
   <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
-    {cards if cards else '<p class="text-muted">No catabolite datasets found.</p>'}
+    {cards if cards else '<p class="text-muted">No catabolites yet: run LaSSI on a dataset (python main.py) first.</p>'}
   </div>
 </div>
 </body>

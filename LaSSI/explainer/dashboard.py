@@ -1,3 +1,10 @@
+"""The LaSSIExplainer panel of the LaSSI Visualiser (``visualiser.py``).
+
+``render_explanation_dashboard`` builds, for one sentence of a catabolite, the sentence
+with its logical constituents highlighted, its eFOL formula and atoms, and one panel
+per other sentence: the verdict and confidence of the implication, the constituent
+motivations and the possible-world table behind them.
+"""
 import os
 from functools import lru_cache
 from pathlib import Path
@@ -110,6 +117,8 @@ def _mtime(path: str) -> float:
 def _load_explainer_state(dataset_path: str, connection_path: str,
                           logical_mtime: float, internals_mtime: float,
                           string_rep_mtime: float):
+    # The mtimes are only cache keys: a re-run of the pipeline changes them, so the
+    # explainer is rebuilt from the new outputs instead of served from the cache.
     del logical_mtime, internals_mtime, string_rep_mtime
     from LaSSI.explainer.LaSSIExplainer import LaSSIExplainer
     from LaSSI.external_services.Services import Services
@@ -396,7 +405,7 @@ def _pair_panel(explainer, source_idx: int, target_idx: int):
 
     return _card([
         html.Div([
-            html.Span(f"S{source_idx} -> S{target_idx}", style={
+            html.Span(f"S{source_idx} → S{target_idx}", style={
                 "fontWeight": "700",
                 "fontSize": "1rem",
                 "marginRight": "0.7rem",
@@ -456,7 +465,7 @@ def render_explanation_dashboard(catabolite_name: str, full_path: str, selected_
             pair_panels.append(_pair_panel(explainer, selected_idx, target_idx))
         except Exception as exc:
             pair_panels.append(_notice(
-                f"Could not explain S{selected_idx} -> S{target_idx}. "
+                f"Could not explain S{selected_idx} → S{target_idx}. "
                 f"{type(exc).__name__}: {exc}",
                 "warning",
             ))
