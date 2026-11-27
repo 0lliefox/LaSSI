@@ -68,7 +68,9 @@ sudo apt-get install libpq-dev   # macOS: brew install libpq
 pip install .
 ```
 
-Java is needed for Stanford CoreNLP. LaSSI needs a PostgreSQL database and user, as named in `connection.yaml`
+LaSSI v4.5 runs under Python 3.10: 3.10.11 on the Mac and on Comet, where T15 ran (`pyproject.toml` allows 3.10 or
+later). It reads HOnK v1.6.1's graph as released, which was built under Python 3.14, and processes it under its own
+Python. Java is needed for Stanford CoreNLP. LaSSI needs a PostgreSQL database and user, as named in `connection.yaml`
 (database `lassi_v45`, user `lassi`):
 
 ```postgresql
