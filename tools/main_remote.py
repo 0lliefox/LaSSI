@@ -1,6 +1,14 @@
+"""LaSSI against a remote HOnK served over SPARQL, instead of the local release graph.
+
+    python tools/main_remote.py [<dataset.yaml> [<connection.yaml>]]
+
+Run from the repository root: the dataset and connection paths are relative to it.
+"""
 import os
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import yaml
 from datasets import load_dataset

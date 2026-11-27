@@ -23,7 +23,7 @@ The bar for action: **can this be expressed via an existing data/ontology mechan
   - Fast, no DB: `python -m unittest LaSSI/tests/test_structural_rewrites.py` (fake HOnK/matchers).
   - Source of truth: `python -m unittest LaSSI/tests/test_similarities.py` — compares `catabolites/<case>/matrices/confusion_matrices_Logical.json` against `LaSSI/tests/assertions/similarities_neet.json`. Baseline is all-Completely-Working (currently 20/20). `"null"` in the gold = any value strictly in (0,1). Do **not** trust `test_assertions.test_string_reps` (frozenset-ordering-dependent).
 - **The cache gotcha:** edits to the comparison/similarity engine (`ModelSearch` / `ConstituentComparator` / `TabularCWASemantics`) are no-ops unless you delete `catabolites/<case>/SentenceRepresentation.Logical/` and `catabolites/<case>/matrices/confusion_matrices_Logical.json`, then recompute with `eval/_recompute_matrices.py <case>…`. Structural-rewrite/eFOL changes are *not* affected by this cache — an identical matrix after regeneration is your behaviour-neutrality proof.
-- meuDB is the slow stage; default `delete_files(target_folders=[...])` preserves it. Re-run the gold cases with `zsh regen_gold.sh` (one Python process per case, since the JVM cannot restart).
+- meuDB is the slow stage; default `delete_files(target_folders=[...])` preserves it. Re-run the gold cases with `zsh tools/regen_gold.sh` (one Python process per case, since the JVM cannot restart).
 - **Behaviour-neutral refactors must prove it:** regenerate affected cases and diff matrices (`eval/diff_matrices.py`). If a value changes, justify it logically and only then update `similarities_neet.json` (gold is directional: cell `[i][j]` = `P(Sj | Si)`, and may be corrected when a computed value is more sound) — or revert.
 - **Attribute regressions precisely:** revert your edit and re-run (cache cleared) to distinguish your change from pre-existing/WIP breakage. Know which layer you're editing — the verdict path is `ExpandConstituents.compare → ModelSearch._guard_contextual_implication`; the matrix cell is the BDD ratio from `get_straightforward_id_similarity` downstream of it.
 
@@ -35,7 +35,7 @@ The bar for action: **can this be expressed via an existing data/ontology mechan
 - **D. Classification lists that could be derived** from `logical_analysis.json`, `dependency_roles.json`, or an existing HOnK getter.
 - **E. Multiply-listed registries** (a list + `__all__` + import block; a set + init + getter) → collapse to one registry that derives the rest.
 - **F. Lexical sets drifted into Python or JSON config that are actually ontology** (NER-tag/preposition lists are legitimately data; verb/noun vocabulary is not).
-- **G. Dead code / stale references**: unused imports, never-firing rules (trace with `_audit_trace_one.py`, which monkeypatches `RuleRegistry.apply_phase` and writes `_rule_firing.json` per case), comments naming deleted classes.
+- **G. Dead code / stale references**: unused imports, never-firing rules (trace with `tools/audit_trace_one.py`, which monkeypatches `RuleRegistry.apply_phase` and writes `_rule_firing.json` per case), comments naming deleted classes.
 
 ## Output format
 

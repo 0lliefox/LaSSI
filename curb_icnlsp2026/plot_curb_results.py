@@ -106,7 +106,7 @@ def main():
     try:
         df = pd.read_csv('evaluation_output_compared.csv')
     except FileNotFoundError:
-        print("evaluation_output_compared.csv not found. Please run eval_results.py first.")
+        print("evaluation_output_compared.csv not found. Please run curb_icnlsp2026/eval_results.py first.")
         return
 
     model_names = set([col.replace('_pred', '') for col in df.columns if col.endswith('_pred')])

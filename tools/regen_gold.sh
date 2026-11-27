@@ -7,12 +7,12 @@
 # LaSSI._invalidate_stale_cache, so each case does a full pipeline pass.
 #
 # Usage:
-#   zsh regen_gold.sh              # the 20 gold cases (similarities_neet.json)
-#   zsh regen_gold.sh all          # all 30 evidence cases
-#   zsh regen_gold.sh crime_004 …  # explicit case list
-#   PY=<venv>/bin/python zsh regen_gold.sh   # PY is the interpreter (default: python)
+#   zsh tools/regen_gold.sh                      # the 20 gold cases (similarities_neet.json)
+#   zsh tools/regen_gold.sh all                  # all 30 evidence cases
+#   zsh tools/regen_gold.sh crime_004 …          # explicit case list
+#   PY=<venv>/bin/python zsh tools/regen_gold.sh # PY is the interpreter (default: python)
 #   $PY -m unittest LaSSI/tests/test_similarities.py
-cd "${0:A:h}"   # the checkout this script is in
+cd "${0:A:h:h}"   # the checkout this script is in (its parent folder)
 PY=${PY:-python}
 CASES_GOLD=(crime_001 crime_002 crime_003 crime_004 crime_005 crime_006 crime_007 \
        transport_001 transport_002 transport_004 transport_005 transport_006 \

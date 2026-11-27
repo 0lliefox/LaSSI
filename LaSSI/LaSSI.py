@@ -270,7 +270,7 @@ class LaSSI():
 
         from LaSSI.HOnK.HOnK import HOnKSingleton
         HOnKSingleton.instance()
-        # Only call init if not already initialized (main_remote.py does this)
+        # Only call init if not already initialized (tools/main_remote.py does this)
         if HOnKSingleton.get() is None:
             HOnKSingleton.init(HONK_CACHE, fuzzyDBs.uname, fuzzyDBs.pw,
                                      fuzzyDBs.host, fuzzyDBs.port, False, HONK_GRAPH,

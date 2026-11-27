@@ -8,7 +8,9 @@ corpus for dead-rule detection. Regenerates confusion_matrices_Logical.json so
 the similarity suite can re-verify behaviour-neutrality.
 
 Forked one-per-case (JVM can't be restarted within a single process).
-Run from the repo root with the venv python:  python _audit_trace_one.py <case>
+Run with the venv python:  python tools/audit_trace_one.py <case>
+It works in the checkout it is in, wherever it is started from, and imports
+that checkout's LaSSI rather than any installed copy.
 """
 import collections
 import json
@@ -16,6 +18,9 @@ import os
 import shutil
 import sys
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+os.chdir(ROOT)
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 from LaSSI.Configuration import SentenceRepresentation
@@ -58,6 +63,8 @@ def clear_case(case):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        sys.exit("usage: python tools/audit_trace_one.py <case>")
     case = sys.argv[1]
     clear_case(case)
     ds = os.path.join("neet", "evidence_cases", f"{case}.yaml")

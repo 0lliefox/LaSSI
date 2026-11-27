@@ -2,7 +2,7 @@
 
 Scans ``catabolites/<case>/confusion_matrices_FullText_{LLM#,LLMHOnK#}*.json``,
 maps each cell to a NEET claim-verification label using the SAME helper the
-``LLM#`` baseline uses in ``eval_results.py`` (``get_label_matrix_output``), and
+``LLM#`` baseline uses in ``curb_icnlsp2026/eval_results.py`` (``get_label_matrix_output``), and
 emits, into ``results/appendix_honk/``:
 
   ablation_results.csv          per assertion x condition (value, pred, correct)
@@ -30,8 +30,8 @@ if _REPO_ROOT not in sys.path:
 import pandas as pd
 from sklearn.metrics import f1_score
 
-from eval_results import (_NEET_LABELS, _load_similarities_gold,
-                          get_label_matrix_output)
+from curb_icnlsp2026.eval_results import (_NEET_LABELS, _load_similarities_gold,
+                                          get_label_matrix_output)
 
 import matplotlib
 matplotlib.use("Agg")

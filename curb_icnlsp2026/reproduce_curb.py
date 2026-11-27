@@ -1,12 +1,13 @@
 """Reproduce the result numbers of the CURB paper (ICNLSP 2026) from the released outputs.
 
-    python reproduce_curb.py
+    python curb_icnlsp2026/reproduce_curb.py
 
 Scores the released per-case comparison matrices (neet/curb_results/matrices) with eval_results.py, whose
 label rules are those of the paper's Section 5.2, and checks every system's per-pair label against the frozen
 record the paper's numbers were taken from (neet/curb_results/evaluation_output_compared.csv). Needs Python
 3.10+ with pandas and scikit-learn; it does not run the LaSSI pipeline. See REPRODUCING.md for what the
-released matrices are and why re-running the pipeline today does not regenerate them.
+released matrices are and why re-running the pipeline today does not regenerate them. It can be run from any
+directory.
 """
 import csv
 import os
@@ -14,7 +15,8 @@ import subprocess
 import sys
 import tempfile
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
 RESULTS = os.path.join(ROOT, "neet", "curb_results")
 LABELS = ("Supported", "Refuted", "Not Enough Evidence")
 
@@ -49,7 +51,7 @@ def main():
         os.symlink(os.path.join(ROOT, "LaSSI"), os.path.join(work, "LaSSI"))
         os.symlink(os.path.join(RESULTS, "matrices"), os.path.join(work, "catabolites"))
         os.makedirs(os.path.join(work, "results"))
-        run = subprocess.run([sys.executable, os.path.join(ROOT, "eval_results.py")], cwd=work,
+        run = subprocess.run([sys.executable, os.path.join(HERE, "eval_results.py")], cwd=work,
                              capture_output=True, text=True)
         if run.returncode != 0:
             sys.stderr.write(run.stdout + run.stderr)

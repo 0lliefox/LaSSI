@@ -104,7 +104,7 @@ ungrounded baseline is `LLM#<model>`.
   Not-Enough-Evidence). **90 assertions over 30 cases**, balanced 30/30/30,
   domains transport/weather/roadworks/crime. Each case yields a 4×4 FullText
   similarity matrix; the evaluator reads row-0 (evidence) vs the three claim
-  columns, mapped to a label by `eval_results.get_label_matrix_output` — the
+  columns, mapped to a label by `get_label_matrix_output` (`curb_icnlsp2026/eval_results.py`) — the
   *same* mapping the ungrounded `LLM#` baseline uses (apples-to-apples).
 - **Conditions** (per base model): `ungrounded` (`LLM#<m>`), `honk`, `lifecycle`
   (isolation of the contradiction source), `honk+lifecycle`, `all`.

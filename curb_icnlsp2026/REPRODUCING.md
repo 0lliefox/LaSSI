@@ -6,13 +6,13 @@ The paper's data and outputs are also on OSF: <https://osf.io/fu4bg/>.
 ## One command
 
 ```
-python reproduce_curb.py
+python curb_icnlsp2026/reproduce_curb.py
 ```
 
-This needs Python 3.10+ with `pandas` and `scikit-learn`; it does not run the LaSSI pipeline. It does three things:
+Paths in this file are from the repository root. This needs Python 3.10+ with `pandas` and `scikit-learn`; it does not run the LaSSI pipeline. It does three things:
 
 1. It scores the released per-case comparison matrices (`neet/curb_results/matrices/`, the same files as on OSF)
-   with `eval_results.py`, using the label rules of the paper's Section 5.2.
+   with `curb_icnlsp2026/eval_results.py`, using the label rules of the paper's Section 5.2.
 2. It recomputes accuracy and Macro-F1 for every system from the frozen per-pair record that the paper's numbers
    were taken from (`neet/curb_results/evaluation_output_compared.csv`).
 3. It checks the two against each other, label by label.

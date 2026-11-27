@@ -91,6 +91,10 @@ python main.py <dataset.yaml> <connection.yaml>
 `python visualiser.py`, from the repository root, serves the LaSSI Visualiser (FastAPI and Dash) over `catabolites/`
 on port 8000.
 
+`tools/` holds the scripts around the pipeline: `audit_trace_one.py` runs one case and records which structural
+rewrites fire (the experiment runners call it once per case), `regen_gold.sh` rebuilds the gold cases, and
+`main_remote.py` runs LaSSI against a remote HOnK over SPARQL.
+
 `SentenceRepresentation` in `LaSSI/Configuration.py` chooses the form: `Logical` (the default), `LogicalGraph`,
 `SimpleGraph`, `FullText`, and each graph or logical form with `DisabledAPriori`.
 
@@ -98,7 +102,7 @@ on port 8000.
 
 ```bash
 python -m unittest LaSSI.tests.test_v45_honk_v2        # one of the unit tests (hand-built inputs)
-zsh regen_gold.sh                                       # rebuilds the 20 gold cases' outputs (one process each)
+zsh tools/regen_gold.sh                                 # rebuilds the 20 gold cases' outputs (one process each)
 python -m unittest LaSSI/tests/test_similarities.py     # compares them with the gold matrices
 ```
 
@@ -108,8 +112,9 @@ python -m unittest LaSSI/tests/test_similarities.py     # compares them with the
 ## Data and reproduction
 
 NEET's annotated data is on [OSF](https://osf.io/fu4bg/overview?view_only=c321084ba74c488fb587fc4b54cc290f). Test
-sentences are in `test_sentences/`. `REPRODUCING.md` recomputes the CURB results of the ICNLSP 2026 paper from the
-released matrices; those matrices came from an earlier version of LaSSI, not v4.5.
+sentences are in `test_sentences/`. `curb_icnlsp2026/` recomputes the CURB results of the ICNLSP 2026 paper from the
+released matrices (`python curb_icnlsp2026/reproduce_curb.py`; see its `REPRODUCING.md`); those matrices came from an
+earlier version of LaSSI, not v4.5.
 
 ## Authors
 
