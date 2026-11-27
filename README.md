@@ -1,153 +1,112 @@
 # <img src="extra/lassiLogo.svg" style="height:80px; width: auto;" alt="Logo: Credits to Oliver Robert Fox (2024)" /> LaSSI
 
-LaSSI stands for `LogicAl, Structural, and Semantic text Interpretation`. Rather than relying solely on learned representations, LaSSI interprets natural language through a pipeline of verifiable, symbolic steps; converting raw text into Extended First-Order Logic (eFOL) formulae and computing inter-sentence similarity via BDD model-counting. This design keeps every reasoning decision auditable and traceable, in the spirit of Verified Artificial Intelligence. The pipeline is domain-general; current experiments use the **NEET** corpus of transport, roadworks, and crime notices as an evaluation benchmark.
+LaSSI (`LogicAl, Structural, and Semantic text Interpretation`) reads natural language through symbolic steps that can
+each be checked. It turns text into Extended First-Order Logic (eFOL) formulae and scores how far one sentence implies
+another by BDD model counting, so every decision can be traced. The pipeline is domain-general; the current experiments
+use **NEET**, a corpus of transport, roadworks, crime and weather notices.
+
+## Status
+
+This is **LaSSI v4.5**, frozen at tag `v4.5` on 27 November 2026 for the evaluation on CURB. It reads
+[HOnK v1.6.1](https://github.com/0lliefox/HOnK/tree/v1.6.1). The previous version is branch `v4.4`.
+
+Against v4.4, v4.5:
+
+- reads HOnK v1.6.1 from its release N-Triples, with a table and cache of its own;
+- lets only a different town contradict a place (another street in the same town, or a forecast for another town,
+  is not a contradiction);
+- reads a clock time stated in UTC as the date's own time;
+- gives no score to a sentence it cannot parse;
+- can run the LLM baselines from their released weights through Hugging Face.
+
+Each change has unit tests in `LaSSI/tests/`.
+
+## Pipeline
+
+Each phase caches its results per sentence in `catabolites/`.
+
+| Phase | Module (`LaSSI/phases/`) | Does |
+|---|---|---|
+| SentenceLoader | `SentenceLoader.py` | Reads the YAML rows |
+| StructuredSentenceLoader | `StructuredSentenceLoader.py` | Splits rows into chunks; protects timestamps, date ranges and metrics |
+| RowChunkPipeline | `RowChunkPipeline.py` | Classifies each chunk's role and merges the chunks' kernels back into the row |
+| ExplainTextWithNER | `ResolveBasicTypes.py` | Stanza tagging and parsing; matches words against HOnK (meuDB) |
+| GetGSMString | `GetGSMString.py` | Stanford CoreNLP (Java) gives the Generalised Semistructured Model (GSM) |
+| ApplyGraphGrammars | `ApplyGraphGrammars.py` | DatagramDB graph-grammar rules |
+| SemanticGraphRewriting | `SemanticGraphRewriting.py` | GSM to an entity-relationship graph, with structural rewrites |
+| LogicalRewriting | `LogicalRewriting.py` | eFOL formulae |
+| CalculateMatrix | `CalculateMatrix.py` | The sentence-to-sentence similarity matrix |
+
+The structural rewrites are 30 rules (14 declarative, 16 in Python), all registered in `raw_data/structural_rewrites.json`.
+
+## Knowledge
+
+- **HOnK v1.6.1**: `LaSSI/HOnK-v1-6-1.nt` is a link to the release's N-Triples file and is not in the repository.
+  LaSSI builds a store (`cache_v161`) and a Postgres table (`honk_v161`) from it, and rebuilds both when the file
+  changes. The names are set in `LaSSI/Configuration.py`.
+- `LaSSI/LifecycleStates.ttl`: contradictions between states (e.g. *reduction in spaces* ⊥ *operating normally*).
+- `LaSSI/Paraphrase.ttl`: predicate equivalences (e.g. *operate* ≡ *run*).
+
+## Similarity backends
+
+Chosen by the `transformer` string:
+
+| Prefix | Backend | Example |
+|---|---|---|
+| *(none)* | eFOL BDD model counting (`Logical`, the default) | |
+| bare name | Sentence-transformer embeddings | `all-MiniLM-L6-v2` |
+| `NLI#` | NLI cross-encoder | `NLI#cross-encoder/nli-MiniLM2-L6-H768` |
+| `LLM#` | LLM through Ollama, or the released weights with `LASSI_LLM_BACKEND=hf` and `LASSI_LLM_HF_MODELS` | `LLM#qwen2.5:7b` |
+| `LLMHOnK#` | LLM given HOnK's facts as evidence | `LLMHOnK#qwen2.5:7b#all` |
+| `RAG#` | ColBERT retrieval | `RAG#colbert-ir/colbertv2.0` |
+
+## Installing
+
+```bash
+pip install requests==2.31.0 setuptools==66.1.1
+sudo apt-get install libpq-dev   # macOS: brew install libpq
+pip install .
+```
+
+Java is needed for Stanford CoreNLP. LaSSI needs a PostgreSQL database and user, as named in `connection.yaml`
+(database `lassi_v45`, user `lassi`):
+
+```postgresql
+create database lassi_v45;
+create user lassi with encrypted password 'drowssap';
+grant all privileges on database lassi_v45 to lassi;
+\c lassi_v45 postgres
+grant all on schema public to lassi;
+```
+
+## Running
+
+```bash
+python main.py                                 # default dataset and config
+python main.py <dataset.yaml> <connection.yaml>
+```
+
+`SentenceRepresentation` in `LaSSI/Configuration.py` chooses the form: `Logical` (the default), `LogicalGraph`,
+`SimpleGraph`, `FullText`, and each graph or logical form with `DisabledAPriori`.
+
+## Tests
+
+```bash
+python -m unittest LaSSI.tests.test_v45_honk_v2        # one of the unit tests (hand-built inputs)
+python -m unittest LaSSI/tests/test_similarities.py     # gold matrices; needs a populated catabolites/
+```
+
+`test_similarities.py` compares each case's matrix with `LaSSI/tests/assertions/similarities_neet.json`. A gold
+`"null"` accepts any score strictly between 0 and 1; any other value must match exactly.
+
+## Data and reproduction
+
+NEET's annotated data is on [OSF](https://osf.io/fu4bg/overview?view_only=c321084ba74c488fb587fc4b54cc290f). Test
+sentences are in `test_sentences/`. `REPRODUCING.md` recomputes the CURB results of the ICNLSP 2026 paper from the
+released matrices; those matrices came from an earlier version of LaSSI, not v4.5.
 
 ## Authors
 
 * Oliver Robert Fox (2023 –)
 * Giacomo Bergami (2020 – 2025)
 * Franco O. Saez Vander Linder (2025)
-
----
-
-## Pipeline Architecture
-
-Data flows through the following phases (intermediate results cached per-sentence in `catabolites/`):
-
-| Phase | Module | Description                                                                                                                          |
-|---|---|--------------------------------------------------------------------------------------------------------------------------------------|
-| SentenceLoader | `phases/SentenceLoader.py` | Ingests YAML rows                                                                                                                    |
-| StructuredSentenceLoader | `phases/StructuredSentenceLoader.py` | Splits rows into structural chunks; protects ISO timestamps, date ranges, and metrics                                                |
-| RowChunkPipeline | `phases/RowChunkPipeline.py` | Classifies chunk roles (ACTION / PROSE / HEADER / TOPIC_HEADER / STATUS / …), merges per-chunk kernels back to row level             |
-| ExplainTextWithNER | `phases/ResolveBasicTypes.py` | Stanza POS tagging and dependency parsing; fuzzy matching against HOnK to produce a Multi-Entity Unit Database (meuDB)               |
-| GetGSMString | `phases/GetGSMString.py` | Calls Java/Stanford CoreNLP to produce a Generalised Semistructured Model (GSM)                                                      |
-| ApplyGraphGrammars | `phases/ApplyGraphGrammars.py` | Runs DatagramDB graph-grammar rules                                                                                                  |
-| SemanticGraphRewriting | `phases/SemanticGraphRewriting.py` | Converts GSM to an internal EntityRelationship graph; applies structural rewrites                                                    |
-| LogicalRewriting | `phases/LogicalRewriting.py` | Produces Extended FOL formulae                                                                                                       |
-| CalculateMatrix | `phases/CalculateMatrix.py` | Computes the inter-sentence similarity matrix (eFOL BDD model-counting for `Logical` mode, or embedding/LLM backends for `FullText`) |
-
----
-
-## Key Capabilities
-
-- **Declarative structural-rewrite framework** — 30 rules (14 declarative JSON + 16 Python) that repair dependency-tree artefacts into clean eFOL kernels. The rule registry lives in `raw_data/structural_rewrites.json`; Python subclasses are reserved for rewrites requiring genuine graph surgery.
-
-- **eFOL BDD similarity** — directional entailment score P(Sj | Si) computed via BDD model-counting with a distinguishing-content cap. Cap conditions and construct metadata are data-driven from `raw_data/logical_analysis.json` — no hand-maintained lists in code.
-
-- **HOnK ontology** — a local RDF knowledge graph (`HOnK.ttl`) providing synonym/hypernym lookup at inference time via BFS over pre-built adjacency dicts. Extended with:
-  - `LifecycleStates.ttl` — domain contradiction axioms (e.g. *reduction in spaces* ⊥ *operating normally*)
-  - `Paraphrase.ttl` — predicate equivalences (e.g. *operate* ≡ *run*)
-
-- **Multiple similarity backends** — selectable via the `transformer` constructor parameter:
-
-  | Prefix | Backend | Example |
-  |---|---|---|
-  | *(none)* | eFOL BDD model-counting | default `Logical` mode |
-  | bare string | HuggingFace sentence-transformer | `all-MiniLM-L6-v2` |
-  | `NLI#` | Transformer NLI entailment | `NLI#cross-encoder/nli-MiniLM2-L6-H768` |
-  | `LLM#` | Local Ollama LLM | `LLM#qwen2.5:7b` |
-  | `LLMHOnK#` | LLM grounded in HOnK facts | `LLMHOnK#qwen2.5:7b#all` |
-  | `RAG#` | ColBERT retrieval-augmented | `RAG#colbert-ir/colbertv2.0` |
-
-- **Explainer dashboard** — Flask/Plotly web interface for inspecting confusion matrices, logical forms, and per-sentence reasoning provenance.
-
-- **Evaluation tooling** — `eval/` contains an ablation runner for the NEET 3-class claim-verification task (Supported / Refuted / Not Enough Evidence) comparing ungrounded LLMs against HOnK-grounded variants.
-
----
-
-## Installing
-
-Install the required system dependencies first:
-
-```bash
-pip install requests==2.31.0
-pip install setuptools==66.1.1
-sudo apt-get install libpq-dev   # Linux; macOS: brew install libpq
-```
-
-Then install the package:
-
-```bash
-pip install .
-```
-
-Also ensure **Java** is installed (required for Stanford CoreNLP).
-
-### PostgreSQL
-
-```bash
-sudo apt install postgresql -y
-sudo -u postgres psql
-```
-```postgresql
-create database lassi;
-create user lassi with encrypted password 'drowssap';
-grant all privileges on database lassi to lassi;
-\c lassi postgres
-grant all on schema public to lassi;
-\q
-```
-
-Database connection (PostgreSQL credentials and fuzzy-DB dataset URLs for ConceptNet and GeoNames) is configured in `connection.yaml`.
-
----
-
-## Running
-
-```bash
-# Default run
-python main.py
-
-# Custom dataset and config
-python main.py <dataset.yaml> <connection.yaml>
-```
-
-The `SentenceRepresentation` enum in `LaSSI/Configuration.py` controls output format and similarity mode:
-
-| Value | Description |
-|---|---|
-| `FullText` | Raw text passthrough; embedding/LLM similarity |
-| `SimpleGraph` | Graph representation |
-| `LogicalGraph` | Extended FOL + graph |
-| `Logical` | Extended FOL formulae; eFOL BDD similarity (default) |
-| `SimpleGraphDisabledAPriori` | `SimpleGraph` with a-priori similarity disabled |
-| `LogicalGraphDisabledAPriori` | `LogicalGraph` with a-priori disabled |
-| `LogicalDisabledAPriori` | `Logical` with a-priori disabled |
-
-Intermediate representations are cached in `catabolites/` so subsequent runs skip completed phases.
-
----
-
-## Tests
-
-The pipeline must have been run at least once to populate `catabolites/` before running assertion-based tests.
-
-```bash
-# Structural-rewrite unit tests
-python -m unittest LaSSI/tests/test_structural_rewrites.py
-
-# Similarity gold tests (source of truth)
-python -m unittest LaSSI/tests/test_similarities.py
-
-# Benchmarks
-python LaSSI/tests/benchmark_sentences.py
-python LaSSI/tests/run_all_sentences.py
-```
-
-`test_similarities.py` compares per-case confusion matrices against `LaSSI/tests/assertions/similarities_neet.json`. Gold entries marked `"null"` accept any score strictly between 0.0 and 1.0 (partial implication); concrete values must match exactly. Benchmark results are written to `catabolites/benchmark.csv` and `results/`.
-
----
-
-## Datasets
-
-The primary evaluation corpus is NEET — a collection of transport, roadworks, and crime notices annotated for claim verification. The annotated dataset is available on [OSF](https://osf.io/fu4bg/overview?view_only=c321084ba74c488fb587fc4b54cc290f).
-
-Test sentences are in `test_sentences/`; benchmarking sentences are in `test_sentences/benchmarking/`.
-
----
-
-## Future Work
-
-- Extend structural-rewrite coverage to more complex sentence structures (multi-clause, relative-clause chains)
-- Improve robustness of telegraphic headline parsing (pseudo-verb recovery edge cases)
-- Increase domain coverage beyond current evaluation datasets
